@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEatInStore } from '@/store/wheelStore';
 import { getCustomRecipes } from '@/lib/customRecipes';
 import { WHEEL_CUISINE_OPTIONS, EFFORT_OPTIONS, type EffortLevel, type WheelItem, type Recipe } from '@/types';
-import { colors, radius, spacing, font } from '@/constants/theme';
+import { useTheme } from '@/context/ThemeContext';
+import { radius, spacing, font } from '@/constants/theme';
 
 const EFFORT_META: Record<EffortLevel, { emoji: string; sub: string }> = {
   quick:   { emoji: '⚡', sub: 'Under 30 minutes' },
@@ -14,6 +15,7 @@ const EFFORT_META: Record<EffortLevel, { emoji: string; sub: string }> = {
 
 export default function EatInFilters() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { filters, setFilters, setWheelItems, setLoading, isLoading } = useEatInStore();
 
   const toggleCuisine = (c: string) => {
@@ -30,7 +32,6 @@ export default function EatInFilters() {
     setLoading(true);
     try {
       const all = await getCustomRecipes();
-      // Always exclude spice mixes and sauces from the wheel
       let filtered = all.filter(r => r.cuisine !== 'Spice Mixes' && r.cuisine !== 'Sauces');
       if (filters.cuisines.length) filtered = filtered.filter(r => filters.cuisines.includes(r.cuisine));
       if (filters.efforts.length) filtered = filtered.filter(r => filters.efforts.includes(r.effort));
@@ -48,48 +49,70 @@ export default function EatInFilters() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backTxt}>← Back</Text>
+          <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
         </Pressable>
-        <Text style={styles.heading}>What's for{'\n'}dinner?</Text>
 
-        <Text style={styles.label}>Cuisine</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>
+          What's for{'\n'}dinner?
+        </Text>
+
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Cuisine</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
-          {WHEEL_CUISINE_OPTIONS.map(c => (
-            <Pressable key={c} style={[styles.chip, filters.cuisines.includes(c) && styles.chipOn]} onPress={() => toggleCuisine(c)}>
-              <Text style={[styles.chipTxt, filters.cuisines.includes(c) && styles.chipTxtOn]}>{c}</Text>
-            </Pressable>
-          ))}
+          {WHEEL_CUISINE_OPTIONS.map(c => {
+            const on = filters.cuisines.includes(c);
+            return (
+              <Pressable
+                key={c}
+                style={[styles.chip, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: on ? colors.chipOnBorder : colors.chipBorder }]}
+                onPress={() => toggleCuisine(c)}
+              >
+                <Text style={[styles.chipTxt, { color: on ? colors.chipOnText : colors.chipText, fontWeight: on ? '700' : '500' }]}>{c}</Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
-        <Text style={styles.label}>How much effort?</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>How much effort?</Text>
         <View style={styles.effortList}>
           {EFFORT_OPTIONS.map(({ label, value }) => {
             const on = filters.efforts.includes(value);
             const meta = EFFORT_META[value];
             return (
-              <Pressable key={value} style={[styles.effortCard, on && styles.effortCardOn]} onPress={() => toggleEffort(value)}>
-                <View style={[styles.effortIconWrap, on && styles.effortIconWrapOn]}>
+              <Pressable
+                key={value}
+                style={[styles.effortCard, { backgroundColor: on ? colors.chipOnBg : colors.bgCard, borderColor: on ? colors.chipOnBorder : colors.border }]}
+                onPress={() => toggleEffort(value)}
+              >
+                <View style={[styles.effortIconWrap, { backgroundColor: on ? colors.primary : colors.bgMuted }]}>
                   <Text style={styles.effortEmoji}>{meta.emoji}</Text>
                 </View>
                 <View style={styles.effortText}>
-                  <Text style={[styles.effortName, on && styles.effortNameOn]}>{label}</Text>
-                  <Text style={styles.effortSub}>{meta.sub}</Text>
+                  <Text style={[styles.effortName, { color: on ? colors.chipOnText : colors.textPrimary }]}>{label}</Text>
+                  <Text style={[styles.effortSub, { color: colors.textSecondary }]}>{meta.sub}</Text>
                 </View>
-                {on && <View style={styles.checkCircle}><Text style={styles.checkMark}>✓</Text></View>}
+                {on && (
+                  <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.checkMark}>✓</Text>
+                  </View>
+                )}
               </Pressable>
             );
           })}
         </View>
 
-        <Pressable style={[styles.btn, isLoading && styles.btnDisabled]} onPress={handleBuildWheel} disabled={isLoading}>
+        <Pressable
+          style={[styles.btn, { backgroundColor: colors.primary, opacity: isLoading ? 0.6 : 1 }]}
+          onPress={handleBuildWheel}
+          disabled={isLoading}
+        >
           {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>Build the Wheel 🎡</Text>}
         </Pressable>
 
         <Pressable style={styles.linkBtn} onPress={() => router.push('/recipes')}>
-          <Text style={styles.linkTxt}>📖 Manage Recipe Book</Text>
+          <Text style={[styles.linkTxt, { color: colors.primary }]}>📖 Manage Recipe Book</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -97,33 +120,27 @@ export default function EatInFilters() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
   backBtn: { marginBottom: spacing.lg },
-  backTxt: { fontSize: font.md, color: colors.textSecondary },
-  heading: { fontSize: 36, fontWeight: '800', color: colors.textPrimary, lineHeight: 42, marginBottom: spacing.lg },
-  label: { fontSize: font.xs, fontWeight: '700', color: colors.textMuted, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
+  backTxt: { fontSize: font.md },
+  heading: { fontSize: 36, fontWeight: '800', lineHeight: 42, marginBottom: spacing.lg },
+  label: { fontSize: font.xs, fontWeight: '700', marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1.5 },
   chipScroll: { marginLeft: -spacing.lg, marginBottom: spacing.lg },
   chipRow: { paddingHorizontal: spacing.lg, gap: 8, flexDirection: 'row' },
-  chip: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.bgCard },
-  chipOn: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
-  chipTxt: { fontSize: font.sm, color: colors.textSecondary, fontWeight: '500' },
-  chipTxtOn: { color: colors.primaryDark, fontWeight: '700' },
+  chip: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.full, borderWidth: 1.5 },
+  chipTxt: { fontSize: font.sm },
   effortList: { gap: spacing.sm, marginBottom: spacing.lg },
-  effortCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border, padding: spacing.md },
-  effortCardOn: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
-  effortIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.bgMuted, alignItems: 'center', justifyContent: 'center' },
-  effortIconWrapOn: { backgroundColor: colors.primary },
+  effortCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, padding: spacing.md },
+  effortIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   effortEmoji: { fontSize: 22 },
   effortText: { flex: 1 },
-  effortName: { fontSize: font.md, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 },
-  effortNameOn: { color: colors.primaryDark },
-  effortSub: { fontSize: font.sm, color: colors.textSecondary },
-  checkCircle: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  effortName: { fontSize: font.md, fontWeight: '600', marginBottom: 2 },
+  effortSub: { fontSize: font.sm },
+  checkCircle: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   checkMark: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  btn: { backgroundColor: colors.primary, borderRadius: radius.lg, padding: 16, alignItems: 'center', marginBottom: spacing.md },
-  btnDisabled: { opacity: 0.6 },
+  btn: { borderRadius: radius.lg, padding: 16, alignItems: 'center', marginBottom: spacing.md },
   btnTxt: { color: '#fff', fontSize: font.md, fontWeight: '700' },
   linkBtn: { alignItems: 'center' },
-  linkTxt: { color: colors.primary, fontSize: font.md, fontWeight: '500' },
+  linkTxt: { fontSize: font.md, fontWeight: '500' },
 });

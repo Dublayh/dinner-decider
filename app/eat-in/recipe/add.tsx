@@ -4,185 +4,107 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addCustomRecipe } from '@/lib/customRecipes';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS, type EffortLevel, type Ingredient, type RecipeStep } from '@/types';
+import { useTheme } from '@/context/ThemeContext';
+import { radius, spacing, font } from '@/constants/theme';
 
 export default function AddRecipe() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [saving, setSaving] = useState(false);
-
   const [name, setName] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [effort, setEffort] = useState<EffortLevel>('medium');
   const [servings, setServings] = useState('2');
   const [readyInMinutes, setReadyInMinutes] = useState('30');
-  const [ingredients, setIngredients] = useState<{ amount: string; unit: string; name: string }[]>([
-    { amount: '', unit: '', name: '' },
-  ]);
+  const [ingredients, setIngredients] = useState<{ amount: string; unit: string; name: string }[]>([{ amount: '', unit: '', name: '' }]);
   const [steps, setSteps] = useState<string[]>(['']);
 
-  function addIngredient() {
-    setIngredients(prev => [...prev, { amount: '', unit: '', name: '' }]);
-  }
-
-  function updateIngredient(i: number, field: keyof Ingredient, value: string) {
-    setIngredients(prev => prev.map((ing, idx) => idx === i ? { ...ing, [field]: value } : ing));
-  }
-
-  function removeIngredient(i: number) {
-    setIngredients(prev => prev.filter((_, idx) => idx !== i));
-  }
-
-  function addStep() {
-    setSteps(prev => [...prev, '']);
-  }
-
-  function updateStep(i: number, value: string) {
-    setSteps(prev => prev.map((s, idx) => idx === i ? value : s));
-  }
-
-  function removeStep(i: number) {
-    setSteps(prev => prev.filter((_, idx) => idx !== i));
-  }
+  const updIng = (i: number, f: keyof Ingredient, v: string) => setIngredients(prev => prev.map((x, idx) => idx === i ? { ...x, [f]: v } : x));
+  const addIng = () => setIngredients(prev => [...prev, { amount: '', unit: '', name: '' }]);
+  const remIng = (i: number) => setIngredients(prev => prev.filter((_, idx) => idx !== i));
+  const updStep = (i: number, v: string) => setSteps(prev => prev.map((s, idx) => idx === i ? v : s));
+  const addStep = () => setSteps(prev => [...prev, '']);
+  const remStep = (i: number) => setSteps(prev => prev.filter((_, idx) => idx !== i));
 
   async function handleSave() {
     if (!name.trim()) { Alert.alert('Name required', 'Please enter a recipe name.'); return; }
     if (!cuisine) { Alert.alert('Cuisine required', 'Please select a cuisine.'); return; }
-
     setSaving(true);
     try {
-      const cleanIngredients: Ingredient[] = ingredients
-        .filter(i => i.name.trim())
-        .map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() }));
-
-      const cleanSteps: RecipeStep[] = steps
-        .filter(s => s.trim())
-        .map((s, idx) => ({ number: idx + 1, step: s.trim() }));
-
       await addCustomRecipe({
-        name: name.trim(),
-        cuisine,
-        effort,
+        name: name.trim(), cuisine, effort,
         readyInMinutes: parseInt(readyInMinutes) || 0,
         servings: parseInt(servings) || 2,
-        ingredients: cleanIngredients,
-        steps: cleanSteps,
+        ingredients: ingredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })),
+        steps: steps.filter(s => s.trim()).map((s, idx) => ({ number: idx + 1, step: s.trim() })),
       });
-
       router.back();
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) { Alert.alert('Error', e.message); }
+    finally { setSaving(false); }
   }
 
+  const inp = [styles.input, { borderColor: colors.border, backgroundColor: colors.bgCard, color: colors.textPrimary }];
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backTxt}>← Back</Text>
+          <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
         </Pressable>
-        <Text style={styles.heading}>Add Recipe</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>Add Recipe</Text>
 
-        {/* Name */}
-        <Text style={styles.label}>Recipe name *</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Grandma's Lasagna" />
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Recipe name *</Text>
+        <TextInput style={inp} value={name} onChangeText={setName} placeholder="e.g. Grandma's Lasagna" placeholderTextColor={colors.textMuted} />
 
-        {/* Cuisine */}
-        <Text style={styles.label}>Cuisine *</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Cuisine *</Text>
         <View style={styles.tagRow}>
-          {CUISINE_OPTIONS.map(c => (
-            <Pressable key={c} style={[styles.tag, cuisine === c && styles.tagOn]} onPress={() => setCuisine(c)}>
-              <Text style={[styles.tagTxt, cuisine === c && styles.tagTxtOn]}>{c}</Text>
-            </Pressable>
-          ))}
+          {CUISINE_OPTIONS.map(c => {
+            const on = cuisine === c;
+            return <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => setCuisine(c)}><Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '700' : '500' }]}>{c}</Text></Pressable>;
+          })}
         </View>
 
-        {/* Effort */}
-        <Text style={styles.label}>Effort level</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Effort level</Text>
         <View style={styles.tagRow}>
-          {EFFORT_OPTIONS.map(({ label, value }) => (
-            <Pressable key={value} style={[styles.tag, effort === value && styles.tagOn]} onPress={() => setEffort(value)}>
-              <Text style={[styles.tagTxt, effort === value && styles.tagTxtOn]}>{label}</Text>
-            </Pressable>
-          ))}
+          {EFFORT_OPTIONS.map(({ label, value }) => {
+            const on = effort === value;
+            return <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => setEffort(value)}><Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '700' : '500' }]}>{label}</Text></Pressable>;
+          })}
         </View>
 
-        {/* Time & Servings */}
         <View style={styles.row}>
           <View style={styles.halfField}>
-            <Text style={styles.label}>Ready in (min)</Text>
-            <TextInput style={styles.input} value={readyInMinutes} onChangeText={setReadyInMinutes} keyboardType="number-pad" placeholder="30" />
+            <Text style={[styles.label, { color: colors.sectionLabel }]}>Ready in (min)</Text>
+            <TextInput style={inp} value={readyInMinutes} onChangeText={setReadyInMinutes} keyboardType="number-pad" placeholder="30" placeholderTextColor={colors.textMuted} />
           </View>
           <View style={styles.halfField}>
-            <Text style={styles.label}>Servings</Text>
-            <TextInput style={styles.input} value={servings} onChangeText={setServings} keyboardType="number-pad" placeholder="2" />
+            <Text style={[styles.label, { color: colors.sectionLabel }]}>Servings</Text>
+            <TextInput style={inp} value={servings} onChangeText={setServings} keyboardType="number-pad" placeholder="2" placeholderTextColor={colors.textMuted} />
           </View>
         </View>
 
-        {/* Ingredients */}
-        <Text style={styles.label}>Ingredients</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Ingredients</Text>
         {ingredients.map((ing, i) => (
           <View key={i} style={styles.ingRow}>
-            <TextInput
-              style={[styles.input, styles.ingAmount]}
-              value={ing.amount}
-              onChangeText={v => updateIngredient(i, 'amount', v)}
-              placeholder="Amount"
-            />
-            <TextInput
-              style={[styles.input, styles.ingUnit]}
-              value={ing.unit}
-              onChangeText={v => updateIngredient(i, 'unit', v)}
-              placeholder="Unit"
-            />
-            <TextInput
-              style={[styles.input, styles.ingName]}
-              value={ing.name}
-              onChangeText={v => updateIngredient(i, 'name', v)}
-              placeholder="Ingredient"
-            />
-            {ingredients.length > 1 && (
-              <Pressable onPress={() => removeIngredient(i)} style={styles.removeBtn}>
-                <Text style={styles.removeBtnTxt}>✕</Text>
-              </Pressable>
-            )}
+            <TextInput style={[inp, styles.ingAmount, { marginBottom: 0 }]} value={ing.amount} onChangeText={v => updIng(i, 'amount', v)} placeholder="Amt" placeholderTextColor={colors.textMuted} />
+            <TextInput style={[inp, styles.ingUnit, { marginBottom: 0 }]} value={ing.unit} onChangeText={v => updIng(i, 'unit', v)} placeholder="Unit" placeholderTextColor={colors.textMuted} />
+            <TextInput style={[inp, styles.ingName, { marginBottom: 0 }]} value={ing.name} onChangeText={v => updIng(i, 'name', v)} placeholder="Ingredient" placeholderTextColor={colors.textMuted} />
+            {ingredients.length > 1 && <Pressable onPress={() => remIng(i)} style={styles.removeBtn}><Text style={[styles.removeBtnTxt, { color: colors.textMuted }]}>✕</Text></Pressable>}
           </View>
         ))}
-        <Pressable style={styles.addRowBtn} onPress={addIngredient}>
-          <Text style={styles.addRowBtnTxt}>+ Add ingredient</Text>
-        </Pressable>
+        <Pressable style={styles.addRowBtn} onPress={addIng}><Text style={[styles.addRowBtnTxt, { color: colors.primary }]}>+ Add ingredient</Text></Pressable>
 
-        {/* Steps */}
-        <Text style={[styles.label, { marginTop: 16 }]}>Directions</Text>
+        <Text style={[styles.label, { color: colors.sectionLabel, marginTop: spacing.md }]}>Directions</Text>
         {steps.map((step, i) => (
           <View key={i} style={styles.stepRow}>
-            <View style={styles.stepNum}>
-              <Text style={styles.stepNumTxt}>{i + 1}</Text>
-            </View>
-            <TextInput
-              style={[styles.input, styles.stepInput]}
-              value={step}
-              onChangeText={v => updateStep(i, v)}
-              placeholder={`Step ${i + 1}...`}
-              multiline
-            />
-            {steps.length > 1 && (
-              <Pressable onPress={() => removeStep(i)} style={styles.removeBtn}>
-                <Text style={styles.removeBtnTxt}>✕</Text>
-              </Pressable>
-            )}
+            <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{i + 1}</Text></View>
+            <TextInput style={[inp, styles.stepInput, { marginBottom: 0 }]} value={step} onChangeText={v => updStep(i, v)} placeholder={`Step ${i + 1}...`} multiline placeholderTextColor={colors.textMuted} />
+            {steps.length > 1 && <Pressable onPress={() => remStep(i)} style={styles.removeBtn}><Text style={[styles.removeBtnTxt, { color: colors.textMuted }]}>✕</Text></Pressable>}
           </View>
         ))}
-        <Pressable style={styles.addRowBtn} onPress={addStep}>
-          <Text style={styles.addRowBtnTxt}>+ Add step</Text>
-        </Pressable>
+        <Pressable style={styles.addRowBtn} onPress={addStep}><Text style={[styles.addRowBtnTxt, { color: colors.primary }]}>+ Add step</Text></Pressable>
 
-        {/* Save */}
-        <Pressable
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
+        <Pressable style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnTxt}>Save Recipe</Text>}
         </Pressable>
       </ScrollView>
@@ -191,33 +113,30 @@ export default function AddRecipe() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 24, paddingBottom: 60 },
-  backBtn: { marginBottom: 20 },
-  backTxt: { fontSize: 15, color: '#666' },
-  heading: { fontSize: 24, fontWeight: '600', color: '#1a1a1a', marginBottom: 24 },
-  label: { fontSize: 12, fontWeight: '500', color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#1a1a1a', marginBottom: 8, backgroundColor: '#fafafa' },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#e5e5e5', backgroundColor: '#fafafa' },
-  tagOn: { backgroundColor: '#EEEDFE', borderColor: '#AFA9EC' },
-  tagTxt: { fontSize: 14, color: '#666' },
-  tagTxtOn: { color: '#3C3489' },
+  safe: { flex: 1 },
+  content: { padding: spacing.lg, paddingBottom: 60 },
+  backBtn: { marginBottom: spacing.lg },
+  backTxt: { fontSize: font.md },
+  heading: { fontSize: 24, fontWeight: '600', marginBottom: spacing.lg },
+  label: { fontSize: font.xs, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
+  input: { borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: font.sm, marginBottom: 8 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md },
+  tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full, borderWidth: 1.5 },
+  tagTxt: { fontSize: font.sm },
   row: { flexDirection: 'row', gap: 12 },
   halfField: { flex: 1 },
   ingRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 4 },
-  ingAmount: { width: 70, marginBottom: 0, flex: 0 },
-  ingUnit: { width: 60, marginBottom: 0, flex: 0 },
-  ingName: { flex: 1, marginBottom: 0 },
+  ingAmount: { width: 70, flex: 0 },
+  ingUnit: { width: 60, flex: 0 },
+  ingName: { flex: 1 },
   stepRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginBottom: 8 },
-  stepNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#EEEDFE', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  stepNumTxt: { fontSize: 12, fontWeight: '500', color: '#3C3489' },
-  stepInput: { flex: 1, marginBottom: 0 },
+  stepNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  stepNumTxt: { fontSize: font.xs, fontWeight: '700' },
+  stepInput: { flex: 1 },
   removeBtn: { padding: 8, marginTop: 4 },
-  removeBtnTxt: { color: '#ccc', fontSize: 16 },
+  removeBtnTxt: { fontSize: 16 },
   addRowBtn: { marginBottom: 4 },
-  addRowBtnTxt: { color: '#7F77DD', fontSize: 14 },
-  saveBtn: { backgroundColor: '#7F77DD', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  addRowBtnTxt: { fontSize: font.sm },
+  saveBtn: { borderRadius: radius.lg, padding: 16, alignItems: 'center', marginTop: spacing.lg },
+  saveBtnTxt: { color: '#fff', fontSize: font.md, fontWeight: '700' },
 });

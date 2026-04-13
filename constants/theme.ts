@@ -1,66 +1,123 @@
+// ─── Colour palettes ────────────────────────────────────────────────────────
 
-// Warm & cozy earthy palette
-export const colors = {
-  // Backgrounds
-  bg: '#FAF7F2',          // warm off-white
-  bgCard: '#FFFFFF',
-  bgMuted: '#F2EDE5',     // warm sand
-
-  // Brand
-  primary: '#C17A3C',     // burnt sienna / warm amber
-  primaryLight: '#F5E6D3', // pale peach
-  primaryDark: '#8A5228',  // deep walnut
-
-  // Accents
-  accent: '#7A9E7E',      // sage green
+export const lightColors = {
+  bg:          '#FAF7F2',
+  bgCard:      '#FFFFFF',
+  bgMuted:     '#F2EDE5',
+  bgCardAlt:   '#F5EDD8',
+  primary:      '#C17A3C',
+  primaryLight: '#F5E6D3',
+  primaryDark:  '#8A5228',
+  accent:      '#7A9E7E',
   accentLight: '#E4EFDF',
-
-  // Text
-  textPrimary: '#2C1A0E',   // dark espresso
-  textSecondary: '#8C7B6B', // warm taupe
-  textMuted: '#B5A898',
-
-  // Borders
-  border: '#E8DDD0',
+  textPrimary:   '#2C1A0E',
+  textSecondary: '#8C7B6B',
+  textMuted:     '#B5A898',
+  border:       '#E8DDD0',
   borderStrong: '#D4C4B0',
-
-  // States
-  danger: '#C0392B',
+  danger:      '#C0392B',
   dangerLight: '#FDECEA',
-
-  // Wheel colors — warm earthy set
-  wheel: [
-    '#C17A3C', '#E8A96A',
-    '#7A9E7E', '#A8C9AB',
-    '#8B6F47', '#C4A882',
-    '#C0695A', '#E8A89F',
-    '#5B7FA6', '#96B4D0',
-  ],
+  heroLabel:       '#C17A3C',
+  heroTitle:       '#2C1A0E',
+  heroTitleAccent: '#C17A3C',
+  heroSubtitle:    '#8C7B6B',
+  heroDivider:     'rgba(193,122,60,0.2)',
+  heroPill:        'rgba(193,122,60,0.12)',
+  heroPillBorder:  'rgba(193,122,60,0.25)',
+  heroPillText:    '#C17A3C',
+  cardEatOutBg:     '#C17A3C',
+  cardEatInBg:      '#8A5228',
+  cardRecipeBg:     '#FFFFFF',
+  cardRecipeBorder: '#E8DDD0',
+  cardText:         '#FFFFFF',
+  cardTextSub:      'rgba(255,255,255,0.8)',
+  cardRecipeText:   '#2C1A0E',
+  cardRecipeTextSub:'#8C7B6B',
+  cardArrow:        'rgba(255,255,255,0.6)',
+  cardRecipeArrow:  '#B5A898',
+  chipBg:       '#FFFFFF',
+  chipBorder:   '#E8DDD0',
+  chipText:     '#8C7B6B',
+  chipOnBg:     '#F5E6D3',
+  chipOnBorder: '#C17A3C',
+  chipOnText:   '#8A5228',
+  toggleBg:      '#FFFFFF',
+  toggleBorder:  '#E8DDD0',
+  toggleText:    '#8C7B6B',
+  toggleOnBg:    '#F5E6D3',
+  toggleOnBorder:'#C17A3C',
+  toggleOnText:  '#8A5228',
+  themeBtnBg:     'rgba(193,122,60,0.12)',
+  themeBtnBorder: 'rgba(193,122,60,0.25)',
+  themeBtnIcon:   '#C17A3C',
+  sectionLabel: '#B5A898',
 };
 
-export const radius = {
-  sm: 8,
-  md: 14,
-  lg: 20,
-  xl: 28,
-  full: 999,
+export const darkColors = {
+  bg:        '#12100D',
+  bgCard:    '#1E1810',
+  bgMuted:   '#2C1F14',
+  bgCardAlt: '#1A1408',
+  primary:      '#D4822F',
+  primaryLight: 'rgba(212,130,47,0.15)',
+  primaryDark:  '#E8A24B',
+  accent:      '#7A9E7E',
+  accentLight: 'rgba(122,158,126,0.2)',
+  textPrimary:   '#F5EDD8',
+  textSecondary: 'rgba(215,190,145,0.7)',
+  textMuted:     'rgba(200,160,90,0.5)',
+  border:       'rgba(200,160,80,0.12)',
+  borderStrong: 'rgba(200,160,80,0.25)',
+  danger:      '#E05252',
+  dangerLight: 'rgba(224,82,82,0.15)',
+  heroLabel:       '#C48A3F',
+  heroTitle:       '#F5EDD8',
+  heroTitleAccent: '#D4822F',
+  heroSubtitle:    'rgba(215,190,145,0.65)',
+  heroDivider:     'rgba(200,160,80,0.12)',
+  heroPill:        'rgba(212,130,48,0.12)',
+  heroPillBorder:  'rgba(212,130,48,0.2)',
+  heroPillText:    '#C48A3F',
+  cardEatOutBg:     '#2C1A0A',
+  cardEatInBg:      '#1C1508',
+  cardRecipeBg:     '#0E1218',
+  cardRecipeBorder: 'rgba(100,140,200,0.12)',
+  cardText:         '#F0E4CC',
+  cardTextSub:      'rgba(200,175,130,0.6)',
+  cardRecipeText:   '#F0E4CC',
+  cardRecipeTextSub:'rgba(200,175,130,0.6)',
+  cardArrow:        'rgba(200,160,80,0.35)',
+  cardRecipeArrow:  'rgba(200,160,80,0.35)',
+  chipBg:       '#1E1810',
+  chipBorder:   'rgba(200,160,80,0.15)',
+  chipText:     'rgba(215,190,145,0.6)',
+  chipOnBg:     'rgba(212,130,48,0.18)',
+  chipOnBorder: '#D4822F',
+  chipOnText:   '#E8A24B',
+  toggleBg:      '#1E1810',
+  toggleBorder:  'rgba(200,160,80,0.15)',
+  toggleText:    'rgba(215,190,145,0.6)',
+  toggleOnBg:    'rgba(212,130,48,0.15)',
+  toggleOnBorder:'#D4822F',
+  toggleOnText:  '#E8A24B',
+  themeBtnBg:     'rgba(212,130,48,0.12)',
+  themeBtnBorder: 'rgba(212,130,48,0.2)',
+  themeBtnIcon:   '#D4822F',
+  sectionLabel: 'rgba(200,160,90,0.5)',
 };
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
+export type ThemeColors = typeof lightColors;
+export type ThemeMode = 'light' | 'dark';
 
-export const font = {
-  // Sizes
-  xs: 11,
-  sm: 13,
-  md: 15,
-  lg: 18,
-  xl: 22,
-  xxl: 28,
-  display: 36,
-};
+export const radius = { sm: 8, md: 14, lg: 20, xl: 28, full: 999 };
+export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+export const font = { xs: 11, sm: 13, md: 15, lg: 18, xl: 22, xxl: 28, display: 42 };
+
+export const wheelColors = [
+  '#C17A3C','#E8A96A','#7A9E7E','#A8C9AB',
+  '#8B6F47','#C4A882','#C0695A','#E8A89F',
+  '#5B7FA6','#96B4D0',
+];
+
+// Legacy export so existing imports of `colors` still compile
+export const colors = lightColors;

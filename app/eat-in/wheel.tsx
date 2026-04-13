@@ -1,34 +1,29 @@
 import { useState, useMemo } from 'react';
-import { ScrollView, View, Text, Pressable, TextInput, StyleSheet, Alert, FlatList } from 'react-native';
+import { ScrollView, View, Text, Pressable, TextInput, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEatInStore } from '@/store/wheelStore';
 import SpinWheel from '@/components/SpinWheel';
 import { addCustomRecipe, deleteCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import type { Recipe, WheelItem } from '@/types';
-import { colors, radius, spacing, font } from '@/constants/theme';
+import { useTheme } from '@/context/ThemeContext';
+import { radius, spacing, font } from '@/constants/theme';
 
 export default function EatInWheel() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { wheelItems, addWheelItem, removeWheelItem, winner, setWinner } = useEatInStore();
   const [query, setQuery] = useState('');
   const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
   const [recipesLoaded, setRecipesLoaded] = useState(false);
 
-  // Load all recipes once for search
   async function ensureRecipesLoaded() {
     if (recipesLoaded) return;
-    try {
-      const data = await getCustomRecipes();
-      setAllRecipes(data);
-      setRecipesLoaded(true);
-    } catch {}
+    try { const data = await getCustomRecipes(); setAllRecipes(data); setRecipesLoaded(true); } catch {}
   }
 
-  // IDs already on the wheel
   const onWheelIds = useMemo(() => new Set(wheelItems.map(w => w.id)), [wheelItems]);
 
-  // Filter recipes that match query and aren't already on wheel
   const suggestions = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
@@ -46,10 +41,7 @@ export default function EatInWheel() {
     const name = query.trim();
     if (!name) return;
     try {
-      const saved = await addCustomRecipe({
-        name, cuisine: 'Custom', effort: 'medium',
-        readyInMinutes: 0, servings: 2, ingredients: [], steps: [],
-      });
+      const saved = await addCustomRecipe({ name, cuisine: 'Custom', effort: 'medium', readyInMinutes: 0, servings: 2, ingredients: [], steps: [] });
       addWheelItem({ id: saved.id, label: saved.name, data: saved });
       setQuery('');
     } catch (e: any) { Alert.alert('Error', e.message); }
@@ -63,35 +55,34 @@ export default function EatInWheel() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backTxt}>← Back</Text>
+          <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
         </Pressable>
-        <Text style={styles.heading}>{wheelItems.length} recipes on the wheel</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>{wheelItems.length} recipes on the wheel</Text>
 
         <SpinWheel items={wheelItems} onSpinEnd={(item) => setWinner(item.data)} />
 
         {winner && (
           <Pressable
-            style={styles.resultCard}
+            style={[styles.resultCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
             onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: winner.id } })}
           >
-            <Text style={styles.resultName}>{winner.name}</Text>
-            <Text style={styles.resultSub}>
+            <Text style={[styles.resultName, { color: colors.primaryDark }]}>{winner.name}</Text>
+            <Text style={[styles.resultSub, { color: colors.primary }]}>
               {winner.cuisine}{winner.readyInMinutes > 0 ? ` · ${winner.readyInMinutes} min` : ''}
             </Text>
-            <Text style={styles.recipeHint}>📖 Tap to view full recipe</Text>
+            <Text style={[styles.recipeHint, { color: colors.primaryDark }]}>📖 Tap to view full recipe</Text>
           </Pressable>
         )}
 
-        <View style={styles.divider} />
-        <Text style={styles.label}>Edit the wheel</Text>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Edit the wheel</Text>
 
-        {/* Search input */}
         <View style={styles.searchRow}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { borderColor: colors.border, backgroundColor: colors.bgCard, color: colors.textPrimary }]}
             placeholder="Search your recipes..."
             placeholderTextColor={colors.textMuted}
             value={query}
@@ -101,34 +92,31 @@ export default function EatInWheel() {
           />
         </View>
 
-        {/* Suggestions dropdown */}
         {suggestions.length > 0 && (
-          <View style={styles.suggestions}>
+          <View style={[styles.suggestions, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             {suggestions.map(r => (
-              <Pressable key={r.id} style={styles.suggestionRow} onPress={() => handleAddFromSuggestion(r)}>
+              <Pressable key={r.id} style={[styles.suggestionRow, { borderBottomColor: colors.border }]} onPress={() => handleAddFromSuggestion(r)}>
                 <View style={styles.suggestionInfo}>
-                  <Text style={styles.suggestionName}>{r.name}</Text>
-                  <Text style={styles.suggestionMeta}>{r.cuisine} · {r.effort === 'quick' ? 'Quick' : r.effort === 'medium' ? 'Medium' : 'Weekend'}</Text>
+                  <Text style={[styles.suggestionName, { color: colors.textPrimary }]}>{r.name}</Text>
+                  <Text style={[styles.suggestionMeta, { color: colors.textMuted }]}>{r.cuisine} · {r.effort === 'quick' ? 'Quick' : r.effort === 'medium' ? 'Medium' : 'Weekend'}</Text>
                 </View>
-                <Text style={styles.suggestionAdd}>+ Add</Text>
+                <Text style={[styles.suggestionAdd, { color: colors.primary }]}>+ Add</Text>
               </Pressable>
             ))}
           </View>
         )}
 
-        {/* No matches — offer to add as custom */}
         {noMatches && (
-          <Pressable style={styles.addCustomRow} onPress={handleAddCustom}>
-            <Text style={styles.addCustomTxt}>Add "<Text style={styles.addCustomBold}>{query.trim()}</Text>" as a custom recipe</Text>
+          <Pressable style={[styles.addCustomRow, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]} onPress={handleAddCustom}>
+            <Text style={[styles.addCustomTxt, { color: colors.primaryDark }]}>Add "<Text style={styles.addCustomBold}>{query.trim()}</Text>" as a custom recipe</Text>
           </Pressable>
         )}
 
-        {/* Current wheel items */}
         {wheelItems.map((item) => (
-          <View key={item.id} style={styles.itemRow}>
-            <Text style={styles.itemName}>{item.label}</Text>
+          <View key={item.id} style={[styles.itemRow, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.itemName, { color: colors.textPrimary }]}>{item.label}</Text>
             <Pressable onPress={() => handleRemove(item)} hitSlop={8}>
-              <Text style={styles.removeX}>✕</Text>
+              <Text style={[styles.removeX, { color: colors.textMuted }]}>✕</Text>
             </Pressable>
           </View>
         ))}
@@ -138,29 +126,29 @@ export default function EatInWheel() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
   backBtn: { marginBottom: spacing.md },
-  backTxt: { fontSize: font.md, color: colors.textSecondary },
-  heading: { fontSize: font.lg, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' },
-  resultCard: { marginTop: spacing.md, padding: spacing.lg, backgroundColor: colors.primaryLight, borderRadius: radius.xl, alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: colors.primary },
-  resultName: { fontSize: font.xl, fontWeight: '700', color: colors.primaryDark },
-  resultSub: { fontSize: font.sm, color: colors.primary },
-  recipeHint: { marginTop: 6, fontSize: font.sm, color: colors.primaryDark, fontWeight: '500' },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
-  label: { fontSize: font.xs, fontWeight: '700', color: colors.textMuted, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.6 },
+  backTxt: { fontSize: font.md },
+  heading: { fontSize: font.lg, fontWeight: '600', marginBottom: spacing.md, textAlign: 'center' },
+  resultCard: { marginTop: spacing.md, padding: spacing.lg, borderRadius: radius.xl, alignItems: 'center', gap: 6, borderWidth: 1.5 },
+  resultName: { fontSize: font.xl, fontWeight: '700' },
+  resultSub: { fontSize: font.sm },
+  recipeHint: { marginTop: 6, fontSize: font.sm, fontWeight: '500' },
+  divider: { height: 1, marginVertical: spacing.lg },
+  label: { fontSize: font.xs, fontWeight: '700', marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1.5 },
   searchRow: { marginBottom: 4 },
-  input: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, fontSize: font.sm, backgroundColor: colors.bgCard, color: colors.textPrimary },
-  suggestions: { backgroundColor: colors.bgCard, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, marginBottom: spacing.sm, overflow: 'hidden' },
-  suggestionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  input: { borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, fontSize: font.sm },
+  suggestions: { borderWidth: 1.5, borderRadius: radius.md, marginBottom: spacing.sm, overflow: 'hidden' },
+  suggestionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: 1 },
   suggestionInfo: { flex: 1 },
-  suggestionName: { fontSize: font.sm, fontWeight: '600', color: colors.textPrimary },
-  suggestionMeta: { fontSize: font.xs, color: colors.textMuted },
-  suggestionAdd: { fontSize: font.sm, color: colors.primary, fontWeight: '600' },
-  addCustomRow: { backgroundColor: colors.primaryLight, borderRadius: radius.md, padding: 12, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.primary },
-  addCustomTxt: { fontSize: font.sm, color: colors.primaryDark },
+  suggestionName: { fontSize: font.sm, fontWeight: '600' },
+  suggestionMeta: { fontSize: font.xs },
+  suggestionAdd: { fontSize: font.sm, fontWeight: '600' },
+  addCustomRow: { borderRadius: radius.md, padding: 12, marginBottom: spacing.sm, borderWidth: 1 },
+  addCustomTxt: { fontSize: font.sm },
   addCustomBold: { fontWeight: '700' },
-  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border },
-  itemName: { fontSize: font.sm, color: colors.textPrimary, flex: 1 },
-  removeX: { fontSize: 16, color: colors.textMuted, paddingLeft: 12 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1 },
+  itemName: { fontSize: font.sm, flex: 1 },
+  removeX: { fontSize: 16, paddingLeft: 12 },
 });
