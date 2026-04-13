@@ -36,9 +36,21 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web
 
-      - name: Fix script src path and copy 404 fallback
+      - name: Fix paths and inject base URL router fix
         run: |
+          # Fix script src in index.html
           sed -i 's|src="/_expo/|src="/dinner-decider/_expo/|g' dist/index.html
+
+          # Fix uri: asset paths in the JS bundle
+          find dist/_expo -name "*.js" -exec sed -i 's|uri:"/assets/|uri:"/dinner-decider/assets/|g' {} \;
+
+          # Fix favicon
+          sed -i 's|href="/favicon|href="/dinner-decider/favicon|g' dist/index.html
+
+          # Inject script to strip /dinner-decider prefix before expo-router sees the URL
+          sed -i 's|</head>|<script>if(window.location.pathname.startsWith("/dinner-decider")){var p=window.location.pathname.slice(15)||"/";window.history.replaceState(null,"",p+window.location.search+window.location.hash);}</script></head>|' dist/index.html
+
+          # Copy as 404 fallback for all routes
           cp dist/index.html dist/404.html
 
       - name: Setup Pages
