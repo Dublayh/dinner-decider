@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useEatInStore, useMealPlanSpinStore } from '@/store/wheelStore';
-import SpinWheel from '@/components/SpinWheel';
+import SpinWheel from '@/components/SpinWheelUniversal';
 import { addCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import { setMealPlanEntry } from '@/lib/mealPlan';
 import type { Recipe, WheelItem } from '@/types';

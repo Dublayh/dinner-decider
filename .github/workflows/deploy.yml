@@ -42,6 +42,7 @@ jobs:
           sed -i 's|href="/_expo/|href="/dinner-decider/_expo/|g' dist/index.html
           sed -i 's|href="/assets/|href="/dinner-decider/assets/|g' dist/index.html
           sed -i 's|href="/favicon|href="/dinner-decider/favicon|g' dist/index.html
+          cp dist/index.html dist/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

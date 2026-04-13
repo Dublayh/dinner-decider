@@ -9,7 +9,7 @@ import Animated, {
 import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
 import { useEatOutStore } from '@/store/wheelStore';
-import SpinWheel from '@/components/SpinWheel';
+import SpinWheel from '@/components/SpinWheelUniversal';
 import { addCustomRestaurant } from '@/lib/customRestaurants';
 import { searchRestaurants } from '@/lib/places';
 import { getFavoritePlaceIds, addFavoriteRestaurant, removeFavoriteRestaurant } from '@/lib/favoriteRestaurants';

@@ -1,8 +1,15 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, StatusBar, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet, StatusBar, useWindowDimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Canvas, Rect, Circle, LinearGradient, RadialGradient, vec } from '@shopify/react-native-skia';
+// Skia only works on native - use null stubs on web
+const SkiaModule = Platform.OS !== 'web' ? require('@shopify/react-native-skia') : null;
+const Canvas = SkiaModule?.Canvas ?? (() => null);
+const Rect = SkiaModule?.Rect ?? (() => null);
+const Circle = SkiaModule?.Circle ?? (() => null);
+const LinearGradient = SkiaModule?.LinearGradient ?? (() => null);
+const RadialGradient = SkiaModule?.RadialGradient ?? (() => null);
+const vec = SkiaModule?.vec ?? (() => ({ x: 0, y: 0 }));
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
@@ -22,7 +29,7 @@ function HeroGlow({ width, isDark }: { width: number; isDark: boolean }) {
     ? ['rgba(212,130,48,0.30)', 'rgba(212,130,48,0.16)', 'rgba(212,130,48,0.06)', 'rgba(212,130,48,0.00)']
     : ['rgba(193,122,60,0.13)', 'rgba(193,122,60,0.07)', 'rgba(193,122,60,0.02)', 'rgba(193,122,60,0.00)'];
 
-  return (
+  return Platform.OS === 'web' ? null : (
     <Canvas
       style={{ position: 'absolute', top: -60, left: 0, width, height: width * 1.1 }}
       pointerEvents="none"
@@ -57,12 +64,13 @@ function GradCard({ gradColors, glowColor, onPress, children, borderColor }: Gra
       style={({ pressed }) => [
         styles.cardOuter,
         { borderColor: borderColor ?? 'transparent' },
+        Platform.OS === 'web' && { backgroundColor: gradColors[1] },
         pressed && styles.pressed,
       ]}
       onPress={onPress}
       onLayout={e => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
     >
-      {w > 0 && h > 0 && (
+      {w > 0 && h > 0 && Platform.OS !== 'web' && (
         <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
           <Rect x={0} y={0} width={w} height={h}>
             <LinearGradient
@@ -169,6 +177,10 @@ export default function HomeScreen() {
           <Text style={[styles.heroSubtitle, { color: colors.heroSubtitle }]}>
             The eternal question, finally solved — together.
           </Text>
+          <View style={[styles.pill, { backgroundColor: colors.heroPill, borderColor: colors.heroPillBorder }]}>
+            <View style={[styles.pillDot, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.pillText, { color: colors.heroPillText }]}>Hunger level: critical</Text>
+          </View>
         </View>
 
         {/* Section label */}
