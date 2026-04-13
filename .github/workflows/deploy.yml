@@ -57,4 +57,4 @@ jobs:
           git init
           git add .
           git commit -m "Deploy Let's Eat PWA"
-          git push --force https://x-access-token:${{ secrets.PAGES_TOKEN }}@github.com/Dublayh/dublayh.github.io.git main
+          git push --force https://x-access-token:${{ secrets.PAGES_TOKEN }}@github.com/Dublayh/dublayh.github.io.git master:main
