@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, TextInput, Alert, Share } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { shareContent } from '@/lib/share';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import KeyboardScrollView from '@/components/KeyboardScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCustomRecipeById, updateCustomRecipe, deleteCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import type { Recipe, Ingredient, EffortLevel } from '@/types';
@@ -156,7 +157,8 @@ export default function RecipeDetail() {
     }
 
     try {
-      await Share.share({ message: lines.join('\n'), title: recipe.name });
+      await shareContent(lines.join('
+'), recipe.name);
     } catch (e: any) { Alert.alert('Error', e.message); }
   }
 
@@ -176,7 +178,7 @@ export default function RecipeDetail() {
     const hasSections = (recipe.sections ?? []).length > 0;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
+        <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
           <View style={styles.topRow}>
             <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
             <View style={styles.topActions}>
@@ -262,7 +264,7 @@ export default function RecipeDetail() {
                 ))
             }
           </>}
-        </KeyboardAwareScrollView>
+        </KeyboardScrollView>
       </SafeAreaView>
     );
   }
@@ -270,7 +272,7 @@ export default function RecipeDetail() {
   // EDIT MODE
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
+      <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <View style={styles.topRow}>
           <Pressable onPress={() => setEditing(false)} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
           <Pressable style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
@@ -389,7 +391,7 @@ export default function RecipeDetail() {
             <Text style={[styles.addSectionBtnTxt, { color: colors.primary }]}>+ Add section</Text>
           </Pressable>
         </>}
-      </KeyboardAwareScrollView>
+      </KeyboardScrollView>
     </SafeAreaView>
   );
 }

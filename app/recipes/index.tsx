@@ -1,10 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal, Animated, Dimensions, Easing } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import KeyboardScrollView from '@/components/KeyboardScrollView';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCustomRecipes, deleteCustomRecipe, saveSpoonacularRecipe, addCustomRecipe } from '@/lib/customRecipes';
+import { shareContent } from '@/lib/share';
 import { supabase } from '@/lib/supabase';
 import { fetchRecipes } from '@/lib/spoonacular';
 import type { Recipe, EatInFilters, EffortLevel } from '@/types';
@@ -147,7 +148,7 @@ export default function RecipeBook() {
   async function handleExport() {
     if (!recipes.length) { Alert.alert('Nothing to export', 'Add some recipes first.'); return; }
     const json = JSON.stringify(recipes, null, 2);
-    try { await Share.share({ message: json, title: 'My Recipes' }); }
+    try { await shareContent(json, 'My Recipes'); }
     catch (e: any) { Alert.alert('Error', e.message); }
   }
 
@@ -251,7 +252,7 @@ export default function RecipeBook() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
+      <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
           <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
         </Pressable>
@@ -452,7 +453,7 @@ export default function RecipeBook() {
               ))
           }
         </View>
-      </KeyboardAwareScrollView>
+      </KeyboardScrollView>
 
       {/* Import modal */}
       <BottomSheetModal visible={showImport} onClose={() => { setShowImport(false); setImportText(''); }} avoidKeyboard>

@@ -25,7 +25,15 @@
       "package": "com.dublayh.dinnerdecider"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "static",
+      "name": "Let's Eat!",
+      "shortName": "Let's Eat",
+      "description": "Spin the wheel, decide dinner.",
+      "themeColor": "#C17A3C",
+      "backgroundColor": "#FAF7F2",
+      "preferRelatedApplications": false
     },
     "plugins": [
       "expo-router"
