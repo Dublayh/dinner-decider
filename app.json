@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "dinner-decider",
+    "name": "Let's Eat!",
     "slug": "dinner-decider",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#C17A3C"
     },
     "ios": {
       "supportsTablet": true
@@ -18,13 +18,24 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#C17A3C"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.dublayh.dinnerdecider"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c81604a6-f1a6-4ec2-a450-88314e2b8f50"
+      }
+    },
+    "owner": "dublayh"
   }
 }

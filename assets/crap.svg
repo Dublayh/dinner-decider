@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+    <circle cx="512" cy="440" r="200" fill="#FAF7F2"/>
+    <circle cx="512" cy="440" r="164" fill="#F5E6D3"/>
+    <circle cx="512" cy="440" r="133" fill="#FAF7F2"/>
+    <ellipse cx="512" cy="454" rx="80" ry="14" fill="#E8DDD0"/>
+    <rect x="264" y="290" width="16" height="50" rx="8" fill="#FAF7F2"/>
+    <rect x="288" y="290" width="16" height="50" rx="8" fill="#FAF7F2"/>
+    <rect x="312" y="290" width="16" height="50" rx="8" fill="#FAF7F2"/>
+    <rect x="264" y="328" width="64" height="20" rx="4" fill="#FAF7F2"/>
+    <rect x="288" y="340" width="16" height="130" rx="8" fill="#FAF7F2"/>
+    <rect x="720" y="320" width="24" height="142" rx="12" fill="#FAF7F2"/>
+    <ellipse cx="732" cy="296" rx="32" ry="46" fill="#FAF7F2"/>
+    <ellipse cx="732" cy="296" rx="18" ry="32" fill="#F5E6D3"/>
+    <text x="512" y="720" font-family="Georgia, serif" font-size="80" font-weight="700" fill="#FAF7F2" text-anchor="middle" letter-spacing="1">Let's Eat!</text>
+</svg>
