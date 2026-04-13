@@ -71,12 +71,25 @@ export default function SpinWheel<T>({ items, onSpinEnd, size = 300 }: Props<T>)
   const sliceAngle = (Math.PI * 2) / items.length;
 
   const segments = items.map((item, i) => {
-    const startAngle = i * sliceAngle - Math.PI / 2;
     const path = Skia.Path.Make();
-    path.moveTo(R, R);
-    path.lineTo(R + R * Math.cos(startAngle), R + R * Math.sin(startAngle));
-    path.arcToOval({ x: 0, y: 0, width: size, height: size }, (startAngle * 180) / Math.PI, (sliceAngle * 180) / Math.PI, false);
-    path.close();
+
+    if (items.length === 1) {
+      // Skia drops a 360° arc — use addCircle for single item
+      path.addCircle(R, R, R);
+    } else {
+      const startAngle = i * sliceAngle - Math.PI / 2;
+      path.moveTo(R, R);
+      path.lineTo(R + R * Math.cos(startAngle), R + R * Math.sin(startAngle));
+      path.arcToOval(
+        { x: 0, y: 0, width: size, height: size },
+        (startAngle * 180) / Math.PI,
+        (sliceAngle * 180) / Math.PI,
+        false,
+      );
+      path.close();
+    }
+
+    const startAngle = i * sliceAngle - Math.PI / 2;
     const midAngle = startAngle + sliceAngle / 2;
     const lx = R + R * 0.6 * Math.cos(midAngle);
     const ly = R + R * 0.6 * Math.sin(midAngle);

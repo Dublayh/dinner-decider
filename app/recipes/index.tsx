@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { getCustomRecipes, deleteCustomRecipe, saveSpoonacularRecipe } from '@/lib/customRecipes';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getCustomRecipes, deleteCustomRecipe, saveSpoonacularRecipe, addCustomRecipe } from '@/lib/customRecipes';
+import { supabase } from '@/lib/supabase';
 import { fetchRecipes } from '@/lib/spoonacular';
 import type { Recipe, EatInFilters, EffortLevel } from '@/types';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
@@ -18,6 +19,7 @@ const EFFORT_COLOR: Record<string, string> = {
 export default function RecipeBook() {
   const router = useRouter();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [finding, setFinding] = useState(false);
@@ -29,6 +31,13 @@ export default function RecipeBook() {
   const [listCuisines, setListCuisines] = useState<string[]>([]);
   const [listEfforts, setListEfforts] = useState<EffortLevel[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showUrlImport, setShowUrlImport] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [fetchingUrl, setFetchingUrl] = useState(false);
 
   const load = useCallback(async () => {
     try { setRecipes(await getCustomRecipes()); }
@@ -60,7 +69,85 @@ export default function RecipeBook() {
     ]);
   }
 
-  async function handleFindRecipes() {
+
+  async function handleExport() {
+    if (!recipes.length) { Alert.alert('Nothing to export', 'Add some recipes first.'); return; }
+    const json = JSON.stringify(recipes, null, 2);
+    try { await Share.share({ message: json, title: 'My Recipes' }); }
+    catch (e: any) { Alert.alert('Error', e.message); }
+  }
+
+  async function handleUrlImport() {
+    const url = urlInput.trim();
+    if (!url) return;
+    setFetchingUrl(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('import-recipe-url', {
+        body: { url },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+
+      const r = data.recipe;
+      const existingNames = new Set(recipes.map((x: any) => x.name.toLowerCase()));
+      if (existingNames.has(r.name.toLowerCase())) {
+        Alert.alert('Already saved', `"${r.name}" is already in your Recipe Book.`);
+        return;
+      }
+      await addCustomRecipe({
+        name: r.name, cuisine: r.cuisine ?? 'American',
+        effort: r.effort ?? 'medium',
+        readyInMinutes: r.readyInMinutes ?? 0,
+        servings: r.servings ?? 4,
+        ingredients: r.ingredients ?? [],
+        steps: r.steps ?? [],
+      });
+      setShowUrlImport(false);
+      setUrlInput('');
+      load();
+      Alert.alert('Saved!', `"${r.name}" added to your Recipe Book.`);
+    } catch (e: any) {
+      Alert.alert('Could not import', e.message);
+    } finally {
+      setFetchingUrl(false);
+    }
+  }
+
+
+  async function handleImport() {
+    if (!importText.trim()) return;
+    setImporting(true);
+    try {
+      const parsed = JSON.parse(importText.trim());
+      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      const existingNames = new Set(recipes.map((r: any) => r.name.toLowerCase()));
+      let added = 0;
+      for (const r of arr) {
+        if (!r.name) continue;
+        if (existingNames.has(r.name.toLowerCase())) continue;
+        await addCustomRecipe({
+          name: r.name, cuisine: r.cuisine ?? 'Custom',
+          effort: r.effort ?? 'medium',
+          readyInMinutes: r.readyInMinutes ?? 0,
+          servings: r.servings ?? 2,
+          ingredients: r.ingredients ?? [],
+          steps: r.steps ?? [],
+          sections: r.sections,
+          imageUrl: r.imageUrl,
+        });
+        added++;
+      }
+      setShowImport(false);
+      setImportText('');
+      load();
+      const skipped = arr.length - added;
+      Alert.alert('Done', `Imported ${added} recipe${added !== 1 ? 's' : ''}.${skipped > 0 ? ` Skipped ${skipped} duplicate${skipped !== 1 ? 's' : ''}.` : ''}`);
+    } catch {
+      Alert.alert('Invalid JSON', 'Make sure you pasted the full exported text.');
+    } finally { setImporting(false); }
+  }
+
+    async function handleFindRecipes() {
     setFinding(true);
     try {
       const results = await fetchRecipes(searchFilters);
@@ -95,8 +182,44 @@ export default function RecipeBook() {
           <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
         </Pressable>
 
-        <Text style={[styles.heading, { color: colors.textPrimary }]}>Recipe Book</Text>
-        <Text style={[styles.sub, { color: colors.textMuted }]}>{recipes.length} saved recipe{recipes.length !== 1 ? 's' : ''}</Text>
+        <View style={styles.headingRow}>
+          <View>
+            <Text style={[styles.heading, { color: colors.textPrimary }]}>Recipe Book</Text>
+            <Text style={[styles.sub, { color: colors.textMuted }]}>{recipes.length} saved recipe{recipes.length !== 1 ? 's' : ''}</Text>
+          </View>
+
+          {/* ⋯ dropdown */}
+          <View>
+            <Pressable
+              onPress={() => setShowMenu(v => !v)}
+              style={[styles.menuBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+            >
+              <Text style={[styles.menuBtnTxt, { color: colors.textSecondary }]}>⋯</Text>
+            </Pressable>
+            {showMenu && (
+              <View style={[styles.dropdown, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <Pressable
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                  onPress={() => { setShowMenu(false); handleExport(); }}
+                >
+                  <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↑ Export</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                  onPress={() => { setShowMenu(false); setShowImport(true); }}
+                >
+                  <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↓ Import JSON</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.dropdownItem}
+                  onPress={() => { setShowMenu(false); setShowUrlImport(true); }}
+                >
+                  <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>🔗 Import from URL</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </View>
 
         <View style={[styles.searchBar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <TextInput
@@ -244,6 +367,135 @@ export default function RecipeBook() {
           }
         </View>
       </ScrollView>
+
+      {/* Import modal */}
+      <Modal visible={showImport} transparent animationType="slide" onRequestClose={() => { setShowImport(false); setImportText(''); }}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
+
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import Recipes</Text>
+                <Text style={[styles.modalSub, { color: colors.textMuted }]}>Long-press the box below and tap Paste</Text>
+              </View>
+              <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
+              </Pressable>
+            </View>
+
+            <TextInput
+              style={[styles.modalInput, {
+                borderColor: importText.trim() ? colors.primary : colors.border,
+                backgroundColor: colors.bg,
+                color: colors.textPrimary,
+              }]}
+              placeholder="Paste JSON here..."
+              placeholderTextColor={colors.textMuted}
+              multiline
+              value={importText}
+              onChangeText={setImportText}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textAlignVertical="top"
+            />
+
+            {importText.trim().length > 0 && (
+              <Text style={[styles.modalHint, {
+                color: (importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '#7A9E7E' : colors.danger,
+              }]}>
+                {(importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '✓ Looks good' : '✗ Should start with [ or {'}
+              </Text>
+            )}
+
+            <View style={styles.modalBtns}>
+              <Pressable
+                onPress={() => { setShowImport(false); setImportText(''); }}
+                style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}
+              >
+                <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleImport}
+                disabled={importing || !importText.trim()}
+                style={[styles.modalBtn, styles.modalBtnPrimary, {
+                  backgroundColor: colors.primary,
+                  opacity: (importing || !importText.trim()) ? 0.5 : 1,
+                }]}
+              >
+                {importing
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>
+                }
+              </Pressable>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
+      {/* Import from URL modal */}
+      <Modal visible={showUrlImport} transparent animationType="slide" onRequestClose={() => { setShowUrlImport(false); setUrlInput(''); }}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
+
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import from URL</Text>
+                <Text style={[styles.modalSub, { color: colors.textMuted }]}>Paste a link to any recipe page</Text>
+              </View>
+              <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
+              </Pressable>
+            </View>
+
+            <TextInput
+              style={[styles.modalInput, {
+                height: 56,
+                borderColor: urlInput.trim() ? colors.primary : colors.border,
+                backgroundColor: colors.bg,
+                color: colors.textPrimary,
+              }]}
+              placeholder="https://..."
+              placeholderTextColor={colors.textMuted}
+              value={urlInput}
+              onChangeText={setUrlInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              returnKeyType="go"
+              onSubmitEditing={handleUrlImport}
+            />
+
+            <Text style={[styles.modalHint, { color: colors.textMuted }]}>
+              Works with most major recipe sites that use standard recipe markup.
+            </Text>
+
+            <View style={styles.modalBtns}>
+              <Pressable
+                onPress={() => { setShowUrlImport(false); setUrlInput(''); }}
+                style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}
+              >
+                <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleUrlImport}
+                disabled={fetchingUrl || !urlInput.trim()}
+                style={[styles.modalBtn, styles.modalBtnPrimary, {
+                  backgroundColor: colors.primary,
+                  opacity: (fetchingUrl || !urlInput.trim()) ? 0.5 : 1,
+                }]}
+              >
+                {fetchingUrl
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>
+                }
+              </Pressable>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -254,7 +506,18 @@ const styles = StyleSheet.create({
   backBtn: { marginBottom: spacing.lg },
   backTxt: { fontSize: font.md },
   heading: { fontSize: font.xxl, fontWeight: '700', marginBottom: 4 },
-  sub: { fontSize: font.sm, marginBottom: spacing.lg },
+  sub: { fontSize: font.sm },
+  headingRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.lg },
+  menuBtn: { width: 34, height: 34, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  menuBtnTxt: { fontSize: 16, fontWeight: '700' },
+  dropdown: {
+    position: 'absolute', right: 0, top: 40, borderRadius: radius.md,
+    borderWidth: 1, overflow: 'hidden', zIndex: 99, minWidth: 120,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12, shadowRadius: 8, elevation: 8,
+  },
+  dropdownItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+  dropdownTxt: { fontSize: font.sm, fontWeight: '500' },
   searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, borderWidth: 1.5, marginBottom: spacing.md, paddingHorizontal: 12 },
   searchInput: { flex: 1, paddingVertical: 11, fontSize: font.sm },
   searchClear: { padding: 4 },
@@ -294,4 +557,17 @@ const styles = StyleSheet.create({
   deleteBtn: { paddingRight: spacing.md, paddingLeft: spacing.sm },
   deleteX: { fontSize: 16 },
   empty: { fontSize: font.sm, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalBox: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderBottomWidth: 1 },
+  modalTitle: { fontSize: font.lg, fontWeight: '700', marginBottom: 2 },
+  modalSub: { fontSize: font.sm },
+  modalClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  modalInput: { marginHorizontal: spacing.lg, marginTop: spacing.md, borderWidth: 1.5, borderRadius: radius.lg, padding: spacing.md, height: 160, fontSize: font.sm, fontFamily: 'monospace' },
+  modalHint: { marginHorizontal: spacing.lg, marginTop: spacing.sm, fontSize: font.xs, fontWeight: '500' },
+  modalBtns: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.lg },
+  modalBtn: { flex: 1, borderRadius: radius.lg, padding: 14, alignItems: 'center', borderWidth: 1.5 },
+  modalBtnPrimary: { borderWidth: 0 },
+  modalBtnTxt: { fontSize: font.md, fontWeight: '600' },
 });
