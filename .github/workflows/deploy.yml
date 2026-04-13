@@ -36,13 +36,6 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web
 
-      - name: Fix asset paths for GitHub Pages subdirectory
-        run: |
-          find dist -name "*.html" -exec sed -i 's|src="/_expo/|src="/dinner-decider/_expo/|g' {} \;
-          find dist -name "*.html" -exec sed -i 's|href="/_expo/|href="/dinner-decider/_expo/|g' {} \;
-          find dist -name "*.html" -exec sed -i 's|href="/favicon|href="/dinner-decider/favicon|g' {} \;
-          find dist -name "*.html" -exec sed -i 's|href="/assets/|href="/dinner-decider/assets/|g' {} \;
-
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

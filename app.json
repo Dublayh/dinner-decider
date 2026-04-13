@@ -27,7 +27,7 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "name": "Let's Eat!",
       "shortName": "Let's Eat",
       "description": "Spin the wheel, decide dinner.",
