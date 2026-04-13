@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal, Animated, Dimensions, Easing } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,13 +20,15 @@ const EFFORT_COLOR: Record<string, string> = {
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-function BottomSheetModal({ visible, onClose, children }: {
+function BottomSheetModal({ visible, onClose, children, avoidKeyboard = false }: {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  avoidKeyboard?: boolean;
 }) {
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -36,12 +39,34 @@ function BottomSheetModal({ visible, onClose, children }: {
         Animated.timing(sheetY, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]).start();
     } else if (mounted) {
+      // Reset keyboard offset when closing
+      keyboardOffset.setValue(0);
       Animated.parallel([
         Animated.timing(overlayOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
         Animated.timing(sheetY, { toValue: SCREEN_HEIGHT, duration: 200, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
       ]).start(() => setMounted(false));
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (!avoidKeyboard) return;
+    const { Keyboard } = require('react-native');
+    const showSub = Keyboard.addListener('keyboardDidShow', (e: any) => {
+      Animated.timing(keyboardOffset, {
+        toValue: -e.endCoordinates.height,
+        duration: e.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   if (!mounted) return null;
 
@@ -50,7 +75,10 @@ function BottomSheetModal({ visible, onClose, children }: {
       <Animated.View style={[bsStyles.overlay, { opacity: overlayOpacity }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
-      <Animated.View style={[bsStyles.sheetContainer, { transform: [{ translateY: sheetY }] }]} pointerEvents="box-none">
+      <Animated.View
+        style={[bsStyles.sheetContainer, { transform: [{ translateY: sheetY }, { translateY: keyboardOffset }] }]}
+        pointerEvents="box-none"
+      >
         {children}
       </Animated.View>
     </Modal>
@@ -223,7 +251,7 @@ export default function RecipeBook() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
           <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
         </Pressable>
@@ -424,10 +452,10 @@ export default function RecipeBook() {
               ))
           }
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Import modal */}
-      <BottomSheetModal visible={showImport} onClose={() => { setShowImport(false); setImportText(''); }}>
+      <BottomSheetModal visible={showImport} onClose={() => { setShowImport(false); setImportText(''); }} avoidKeyboard>
         <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -481,7 +509,7 @@ export default function RecipeBook() {
       </BottomSheetModal>
 
       {/* Import from URL modal */}
-      <BottomSheetModal visible={showUrlImport} onClose={() => { setShowUrlImport(false); setUrlInput(''); }}>
+      <BottomSheetModal visible={showUrlImport} onClose={() => { setShowUrlImport(false); setUrlInput(''); }} avoidKeyboard>
         <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>

@@ -80,7 +80,10 @@ function BottomSheetModal({ visible, onClose, children }: {
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
-      <Animated.View style={[styles.sheetContainer, { transform: [{ translateY: sheetY }] }]} pointerEvents="box-none">
+      <Animated.View
+        style={[styles.sheetContainer, { transform: [{ translateY: sheetY }] }]}
+        pointerEvents="box-none"
+      >
         {children}
       </Animated.View>
     </Modal>
