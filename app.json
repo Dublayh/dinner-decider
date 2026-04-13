@@ -33,7 +33,8 @@
       "description": "Spin the wheel, decide dinner.",
       "themeColor": "#C17A3C",
       "backgroundColor": "#FAF7F2",
-      "preferRelatedApplications": false
+      "preferRelatedApplications": false,
+      "display": "standalone"
     },
     "plugins": [
       "expo-router"
