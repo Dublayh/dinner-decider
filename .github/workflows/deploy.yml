@@ -36,22 +36,41 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web
 
-      - name: Fix paths and inject base URL router fix
+      - name: Fix paths and inject router fix
         run: |
-          # Fix script src in index.html
-          sed -i 's|src="/_expo/|src="/dinner-decider/_expo/|g' dist/index.html
+          python3 << 'PYEOF'
+          import os, glob
 
-          # Fix uri: asset paths in the JS bundle
-          find dist/_expo -name "*.js" -exec sed -i 's|uri:"/assets/|uri:"/dinner-decider/assets/|g' {} \;
+          # Fix index.html
+          with open('dist/index.html', 'r') as f:
+              html = f.read()
 
-          # Fix favicon
-          sed -i 's|href="/favicon|href="/dinner-decider/favicon|g' dist/index.html
+          html = html.replace('src="/_expo/', 'src="/dinner-decider/_expo/')
+          html = html.replace('href="/favicon', 'href="/dinner-decider/favicon')
 
-          # Inject script to strip /dinner-decider prefix before expo-router sees the URL
-          sed -i 's|</head>|<script>if(window.location.pathname.startsWith("/dinner-decider")){var p=window.location.pathname.slice(15)||"/";window.history.replaceState(null,"",p+window.location.search+window.location.hash);}</script></head>|' dist/index.html
+          # Inject base path fix script before </head>
+          fix_script = '<script>if(window.location.pathname.startsWith("/dinner-decider")){var p=window.location.pathname.slice(15)||"/";window.history.replaceState(null,"",p+window.location.search+window.location.hash);}</script>'
+          html = html.replace('</head>', fix_script + '</head>')
 
-          # Copy as 404 fallback for all routes
-          cp dist/index.html dist/404.html
+          with open('dist/index.html', 'w') as f:
+              f.write(html)
+
+          # Copy as 404 fallback
+          with open('dist/404.html', 'w') as f:
+              f.write(html)
+
+          # Fix uri: asset paths in JS bundle
+          for js_file in glob.glob('dist/_expo/**/*.js', recursive=True):
+              with open(js_file, 'r', encoding='utf-8', errors='ignore') as f:
+                  content = f.read()
+              if 'uri:"/assets/' in content:
+                  content = content.replace('uri:"/assets/', 'uri:"/dinner-decider/assets/')
+                  with open(js_file, 'w', encoding='utf-8') as f:
+                      f.write(content)
+                  print(f'Fixed: {js_file}')
+
+          print('Done')
+          PYEOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
