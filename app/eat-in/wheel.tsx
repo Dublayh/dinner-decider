@@ -7,9 +7,10 @@ import Animated, {
   withSpring, withSequence, withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
 import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useEatInStore } from '@/store/wheelStore';
+import { useEatInStore, useMealPlanSpinStore } from '@/store/wheelStore';
 import SpinWheel from '@/components/SpinWheel';
 import { addCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
+import { setMealPlanEntry } from '@/lib/mealPlan';
 import type { Recipe, WheelItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
@@ -52,6 +53,7 @@ function ConfettiDot({ angle, color, dist, trigger }: {
 export default function EatInWheel() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const { pendingDate, setPendingDate } = useMealPlanSpinStore();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { wheelItems, addWheelItem, removeWheelItem, winner, setWinner } = useEatInStore();
@@ -78,6 +80,23 @@ export default function EatInWheel() {
         withSpring(1,    { damping: 14, stiffness: 200 }),
       ));
       setCelebrateTrigger(t => t + 1);
+
+      // If we came from meal plan, auto-assign after showing the winner
+      if (pendingDate) {
+        const dateToSave = pendingDate;
+        // Save immediately so calendar is up to date
+        setMealPlanEntry(dateToSave, {
+          type: 'recipe',
+          recipe_id: winner.id,
+          recipe_name: winner.name,
+        }).catch(() => {});
+        // Short delay so user can see the winner, then pop back
+        setTimeout(() => {
+          setPendingDate(null);
+          setWinner(null);
+          router.dismiss(2);
+        }, 1200);
+      }
     } else {
       winnerOpacity.value = withTiming(0, { duration: 120 });
       winnerY.value = withTiming(30, { duration: 120 });

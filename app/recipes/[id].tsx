@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, TextInput, Alert, Share } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCustomRecipeById, updateCustomRecipe, deleteCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
@@ -121,6 +121,44 @@ export default function RecipeDetail() {
     ]);
   }
 
+  async function handleShare() {
+    if (!recipe) return;
+    const EFFORT: Record<string, string> = { quick: '⚡ Quick', medium: '👨‍🍳 Medium', weekend: '🌟 Weekend' };
+    const lines: string[] = [];
+
+    lines.push(`🍽️ ${recipe.name}`);
+    lines.push(`${recipe.cuisine} · ${EFFORT[recipe.effort] ?? recipe.effort}${recipe.readyInMinutes > 0 ? ` · ${recipe.readyInMinutes} min` : ''} · Serves ${recipe.servings}`);
+    lines.push('');
+
+    const hasSections = (recipe.sections ?? []).length > 0;
+
+    if (hasSections) {
+      for (const section of recipe.sections!) {
+        lines.push(`── ${section.name} ──`);
+        lines.push('Ingredients:');
+        section.ingredients.forEach(ing => {
+          lines.push(`  • ${[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}`);
+        });
+        lines.push('');
+        lines.push('Steps:');
+        section.steps.forEach((s, i) => lines.push(`  ${i + 1}. ${s.step}`));
+        lines.push('');
+      }
+    } else {
+      lines.push('Ingredients:');
+      recipe.ingredients.forEach(ing => {
+        lines.push(`  • ${[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}`);
+      });
+      lines.push('');
+      lines.push('Steps:');
+      recipe.steps.forEach((s, i) => lines.push(`  ${i + 1}. ${s.step ?? (s as any)}`));
+    }
+
+    try {
+      await Share.share({ message: lines.join('\n'), title: recipe.name });
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  }
+
   // Shared input style helper
   const inputStyle = [styles.input, { borderColor: colors.border, backgroundColor: colors.bgCard, color: colors.textPrimary }];
 
@@ -141,6 +179,9 @@ export default function RecipeDetail() {
           <View style={styles.topRow}>
             <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
             <View style={styles.topActions}>
+              <Pressable onPress={handleShare} style={[styles.shareBtn, { backgroundColor: colors.bgMuted, borderColor: colors.border }]}>
+                <Text style={{ fontSize: 16 }}>↑</Text>
+              </Pressable>
               <Pressable onPress={() => { setEditing(true); ensureImportableLoaded(); }} style={[styles.editBtn, { backgroundColor: colors.primaryLight }]}><Text style={[styles.editBtnTxt, { color: colors.primaryDark }]}>Edit</Text></Pressable>
               <Pressable onPress={handleDelete} style={[styles.deleteActionBtn, { backgroundColor: colors.dangerLight }]}><Text style={[styles.deleteBtnTxt, { color: colors.danger }]}>Delete</Text></Pressable>
             </View>
@@ -358,7 +399,8 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
-  topActions: { flexDirection: 'row', gap: 10 },
+  topActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  shareBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   editBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
   editBtnTxt: { fontWeight: '600', fontSize: font.sm },
   deleteActionBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },

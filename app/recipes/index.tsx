@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal } from 'react-native';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal, Animated, Dimensions, Easing } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,51 @@ const EFFORT_COLOR: Record<string, string> = {
   medium: '#C17A3C',
   weekend: '#8A5228',
 };
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+function BottomSheetModal({ visible, onClose, children }: {
+  visible: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.timing(sheetY, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    } else if (mounted) {
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+        Animated.timing(sheetY, { toValue: SCREEN_HEIGHT, duration: 200, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      ]).start(() => setMounted(false));
+    }
+  }, [visible]);
+
+  if (!mounted) return null;
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View style={[bsStyles.overlay, { opacity: overlayOpacity }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      </Animated.View>
+      <Animated.View style={[bsStyles.sheetContainer, { transform: [{ translateY: sheetY }] }]} pointerEvents="box-none">
+        {children}
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const bsStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheetContainer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+});
 
 export default function RecipeBook() {
   const router = useRouter();
@@ -382,132 +427,110 @@ export default function RecipeBook() {
       </ScrollView>
 
       {/* Import modal */}
-      <Modal visible={showImport} transparent animationType="slide" onRequestClose={() => { setShowImport(false); setImportText(''); }}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
+      <BottomSheetModal visible={showImport} onClose={() => { setShowImport(false); setImportText(''); }}>
+        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
 
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import Recipes</Text>
-                <Text style={[styles.modalSub, { color: colors.textMuted }]}>Long-press the box below and tap Paste</Text>
-              </View>
-              <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
-                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
-              </Pressable>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import Recipes</Text>
+              <Text style={[styles.modalSub, { color: colors.textMuted }]}>Long-press the box below and tap Paste</Text>
             </View>
-
-            <TextInput
-              style={[styles.modalInput, {
-                borderColor: importText.trim() ? colors.primary : colors.border,
-                backgroundColor: colors.bg,
-                color: colors.textPrimary,
-              }]}
-              placeholder="Paste JSON here..."
-              placeholderTextColor={colors.textMuted}
-              multiline
-              value={importText}
-              onChangeText={setImportText}
-              autoCapitalize="none"
-              autoCorrect={false}
-              textAlignVertical="top"
-            />
-
-            {importText.trim().length > 0 && (
-              <Text style={[styles.modalHint, {
-                color: (importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '#7A9E7E' : colors.danger,
-              }]}>
-                {(importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '✓ Looks good' : '✗ Should start with [ or {'}
-              </Text>
-            )}
-
-            <View style={styles.modalBtns}>
-              <Pressable
-                onPress={() => { setShowImport(false); setImportText(''); }}
-                style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}
-              >
-                <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleImport}
-                disabled={importing || !importText.trim()}
-                style={[styles.modalBtn, styles.modalBtnPrimary, {
-                  backgroundColor: colors.primary,
-                  opacity: (importing || !importText.trim()) ? 0.5 : 1,
-                }]}
-              >
-                {importing
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>
-                }
-              </Pressable>
-            </View>
-
+            <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
+              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
+            </Pressable>
           </View>
+
+          <TextInput
+            style={[styles.modalInput, {
+              borderColor: importText.trim() ? colors.primary : colors.border,
+              backgroundColor: colors.bg,
+              color: colors.textPrimary,
+            }]}
+            placeholder="Paste JSON here..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            value={importText}
+            onChangeText={setImportText}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textAlignVertical="top"
+          />
+
+          {importText.trim().length > 0 && (
+            <Text style={[styles.modalHint, {
+              color: (importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '#7A9E7E' : colors.danger,
+            }]}>
+              {(importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '✓ Looks good' : '✗ Should start with [ or {'}
+            </Text>
+          )}
+
+          <View style={styles.modalBtns}>
+            <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}>
+              <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleImport}
+              disabled={importing || !importText.trim()}
+              style={[styles.modalBtn, styles.modalBtnPrimary, { backgroundColor: colors.primary, opacity: (importing || !importText.trim()) ? 0.5 : 1 }]}
+            >
+              {importing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>}
+            </Pressable>
+          </View>
+
         </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* Import from URL modal */}
-      <Modal visible={showUrlImport} transparent animationType="slide" onRequestClose={() => { setShowUrlImport(false); setUrlInput(''); }}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
+      <BottomSheetModal visible={showUrlImport} onClose={() => { setShowUrlImport(false); setUrlInput(''); }}>
+        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
 
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import from URL</Text>
-                <Text style={[styles.modalSub, { color: colors.textMuted }]}>Paste a link to any recipe page</Text>
-              </View>
-              <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
-                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
-              </Pressable>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import from URL</Text>
+              <Text style={[styles.modalSub, { color: colors.textMuted }]}>Paste a link to any recipe page</Text>
             </View>
-
-            <TextInput
-              style={[styles.modalInput, {
-                height: 56,
-                borderColor: urlInput.trim() ? colors.primary : colors.border,
-                backgroundColor: colors.bg,
-                color: colors.textPrimary,
-              }]}
-              placeholder="https://..."
-              placeholderTextColor={colors.textMuted}
-              value={urlInput}
-              onChangeText={setUrlInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              returnKeyType="go"
-              onSubmitEditing={handleUrlImport}
-            />
-
-            <Text style={[styles.modalHint, { color: colors.textMuted }]}>
-              Works with most major recipe sites that use standard recipe markup.
-            </Text>
-
-            <View style={styles.modalBtns}>
-              <Pressable
-                onPress={() => { setShowUrlImport(false); setUrlInput(''); }}
-                style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}
-              >
-                <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleUrlImport}
-                disabled={fetchingUrl || !urlInput.trim()}
-                style={[styles.modalBtn, styles.modalBtnPrimary, {
-                  backgroundColor: colors.primary,
-                  opacity: (fetchingUrl || !urlInput.trim()) ? 0.5 : 1,
-                }]}
-              >
-                {fetchingUrl
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>
-                }
-              </Pressable>
-            </View>
-
+            <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
+              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
+            </Pressable>
           </View>
+
+          <TextInput
+            style={[styles.modalInput, {
+              height: 56,
+              borderColor: urlInput.trim() ? colors.primary : colors.border,
+              backgroundColor: colors.bg,
+              color: colors.textPrimary,
+            }]}
+            placeholder="https://..."
+            placeholderTextColor={colors.textMuted}
+            value={urlInput}
+            onChangeText={setUrlInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            returnKeyType="go"
+            onSubmitEditing={handleUrlImport}
+          />
+
+          <Text style={[styles.modalHint, { color: colors.textMuted }]}>
+            Works with most major recipe sites that use standard recipe markup.
+          </Text>
+
+          <View style={styles.modalBtns}>
+            <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}>
+              <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleUrlImport}
+              disabled={fetchingUrl || !urlInput.trim()}
+              style={[styles.modalBtn, styles.modalBtnPrimary, { backgroundColor: colors.primary, opacity: (fetchingUrl || !urlInput.trim()) ? 0.5 : 1 }]}
+            >
+              {fetchingUrl ? <ActivityIndicator color="#fff" size="small" /> : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>}
+            </Pressable>
+          </View>
+
         </View>
-      </Modal>
+      </BottomSheetModal>
 
     </SafeAreaView>
   );
@@ -572,7 +595,6 @@ const styles = StyleSheet.create({
   deleteActionTxt: { fontSize: font.xs, fontWeight: '600', color: '#fff', marginTop: 2 },
   empty: { fontSize: font.sm, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderBottomWidth: 1 },
   modalTitle: { fontSize: font.lg, fontWeight: '700', marginBottom: 2 },

@@ -76,3 +76,16 @@ export const useEatInStore = create<EatInState>()((set) => ({
   setWinner: (r) => set({ winner: r }),
   reset: () => set({ filters: defaultEatInFilters, wheelItems: [], winner: null, error: null }),
 }));
+
+// ─── Meal Plan context ────────────────────────────────────────────────────────
+// Holds the date we're spinning for, so the wheel can auto-assign on win
+
+interface MealPlanSpinState {
+  pendingDate: string | null;   // 'YYYY-MM-DD' or null
+  setPendingDate: (d: string | null) => void;
+}
+
+export const useMealPlanSpinStore = create<MealPlanSpinState>()((set) => ({
+  pendingDate: null,
+  setPendingDate: (d) => set({ pendingDate: d }),
+}));

@@ -144,12 +144,20 @@ export default function HomeScreen() {
           <Text style={[styles.greetingLabel, { color: colors.heroLabel }]}>
             {getGreeting()} ✦
           </Text>
-          <Pressable
-            onPress={toggle}
-            style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
-          >
-            <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
-          </Pressable>
+          <View style={styles.topBtns}>
+            <Pressable
+              onPress={() => router.push('/meal-plan')}
+              style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+            >
+              <Text style={{ fontSize: 16 }}>📅</Text>
+            </Pressable>
+            <Pressable
+              onPress={toggle}
+              style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+            >
+              <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Hero */}
@@ -225,6 +233,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
 
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  topBtns: { flexDirection: 'row', gap: spacing.sm },
   greetingLabel: { fontSize: font.xs, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase' },
   themeBtn: { width: 38, height: 38, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 
