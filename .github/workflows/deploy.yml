@@ -5,17 +5,8 @@ on:
     branches: [master]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,57 +27,34 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web
 
-      - name: Fix paths and inject router fix
+      - name: Fix asset paths
         run: |
           python3 << 'PYEOF'
-          import os, glob
+          import glob
 
-          # Fix index.html
           with open('dist/index.html', 'r') as f:
               html = f.read()
 
-          html = html.replace('src="/_expo/', 'src="/dinner-decider/_expo/')
-          html = html.replace('href="/favicon', 'href="/dinner-decider/favicon')
-
-          # Inject base path fix script before </head>
-          fix_script = '<script>if(window.location.pathname.startsWith("/dinner-decider")){var p=window.location.pathname.slice(15)||"/";window.history.replaceState(null,"",p+window.location.search+window.location.hash);}</script>'
-          html = html.replace('</head>', fix_script + '</head>')
-
-          with open('dist/index.html', 'w') as f:
-              f.write(html)
-
-          # Copy as 404 fallback
           with open('dist/404.html', 'w') as f:
               f.write(html)
 
-          # Fix uri: asset paths in JS bundle
           for js_file in glob.glob('dist/_expo/**/*.js', recursive=True):
               with open(js_file, 'r', encoding='utf-8', errors='ignore') as f:
                   content = f.read()
               if 'uri:"/assets/' in content:
-                  content = content.replace('uri:"/assets/', 'uri:"/dinner-decider/assets/')
+                  content = content.replace('uri:"/assets/', 'uri:"/assets/')
                   with open(js_file, 'w', encoding='utf-8') as f:
                       f.write(content)
-                  print(f'Fixed: {js_file}')
 
           print('Done')
           PYEOF
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to dublayh.github.io
+        run: |
+          git config --global user.email "deploy@github.com"
+          git config --global user.name "GitHub Actions"
+          cd dist
+          git init
+          git add .
+          git commit -m "Deploy Let's Eat PWA"
+          git push --force https://x-access-token:${{ secrets.PAGES_TOKEN }}@github.com/Dublayh/dublayh.github.io.git main
