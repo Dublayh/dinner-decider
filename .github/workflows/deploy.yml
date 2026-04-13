@@ -38,13 +38,8 @@ jobs:
           with open('dist/404.html', 'w') as f:
               f.write(html)
 
-          for js_file in glob.glob('dist/_expo/**/*.js', recursive=True):
-              with open(js_file, 'r', encoding='utf-8', errors='ignore') as f:
-                  content = f.read()
-              if 'uri:"/assets/' in content:
-                  content = content.replace('uri:"/assets/', 'uri:"/assets/')
-                  with open(js_file, 'w', encoding='utf-8') as f:
-                      f.write(content)
+          # Add .nojekyll to prevent GitHub Pages from ignoring _expo folder
+          open('dist/.nojekyll', 'w').close()
 
           print('Done')
           PYEOF
