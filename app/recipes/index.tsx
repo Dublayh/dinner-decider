@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCustomRecipes, deleteCustomRecipe, saveSpoonacularRecipe, addCustomRecipe } from '@/lib/customRecipes';
@@ -178,8 +179,8 @@ export default function RecipeBook() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
+        <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
+          <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
         </Pressable>
 
         <View style={styles.headingRow}>
@@ -353,16 +354,28 @@ export default function RecipeBook() {
           {filteredRecipes.length === 0
             ? <Text style={[styles.empty, { color: colors.textMuted }]}>{recipes.length === 0 ? 'No recipes yet. Add some manually or use Find Recipes.' : 'No recipes match your filters.'}</Text>
             : filteredRecipes.map(r => (
-                <Pressable key={r.id} style={[styles.recipeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: r.id } })}>
-                  <View style={[styles.recipeAccent, { backgroundColor: EFFORT_COLOR[r.effort] ?? colors.primary }]} />
-                  <View style={styles.recipeInfo}>
-                    <Text style={[styles.recipeName, { color: colors.textPrimary }]}>{r.name}</Text>
-                    <Text style={[styles.recipeMeta, { color: colors.textMuted }]}>{r.cuisine} · {r.effort === 'quick' ? 'Quick' : r.effort === 'medium' ? 'Medium' : 'Weekend'}</Text>
-                  </View>
-                  <Pressable onPress={() => handleDelete(r.id, r.name)} hitSlop={8} style={styles.deleteBtn}>
-                    <Text style={[styles.deleteX, { color: colors.border }]}>✕</Text>
+                <Swipeable
+                  key={r.id}
+                  friction={2}
+                  rightThreshold={60}
+                  renderRightActions={() => (
+                    <Pressable
+                      style={styles.deleteAction}
+                      onPress={() => handleDelete(r.id, r.name)}
+                    >
+                      <Text style={styles.deleteActionIcon}>🗑</Text>
+                      <Text style={styles.deleteActionTxt}>Delete</Text>
+                    </Pressable>
+                  )}
+                >
+                  <Pressable style={[styles.recipeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: r.id } })}>
+                    <View style={[styles.recipeAccent, { backgroundColor: EFFORT_COLOR[r.effort] ?? colors.primary }]} />
+                    <View style={styles.recipeInfo}>
+                      <Text style={[styles.recipeName, { color: colors.textPrimary }]}>{r.name}</Text>
+                      <Text style={[styles.recipeMeta, { color: colors.textMuted }]}>{r.cuisine} · {r.effort === 'quick' ? '⚡ Quick' : r.effort === 'medium' ? '👨‍🍳 Medium' : '🌟 Weekend'}</Text>
+                    </View>
                   </Pressable>
-                </Pressable>
+                </Swipeable>
               ))
           }
         </View>
@@ -503,8 +516,8 @@ export default function RecipeBook() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
-  backBtn: { marginBottom: spacing.lg },
-  backTxt: { fontSize: font.md },
+  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
   heading: { fontSize: font.xxl, fontWeight: '700', marginBottom: 4 },
   sub: { fontSize: font.sm },
   headingRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.lg },
@@ -549,13 +562,14 @@ const styles = StyleSheet.create({
   filterToggleTxt: { fontSize: font.xs, fontWeight: '500' },
   clearTxt: { fontSize: font.sm, textAlign: 'right', marginTop: 4 },
   list: { gap: spacing.sm, marginTop: 4 },
-  recipeCard: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden', elevation: 1 },
+  recipeCard: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden', elevation: 1, backgroundColor: 'transparent' },
   recipeAccent: { width: 5, alignSelf: 'stretch' },
   recipeInfo: { flex: 1, paddingVertical: 14, paddingHorizontal: spacing.md },
   recipeName: { fontSize: font.md, fontWeight: '600', marginBottom: 3 },
   recipeMeta: { fontSize: font.xs },
-  deleteBtn: { paddingRight: spacing.md, paddingLeft: spacing.sm },
-  deleteX: { fontSize: 16 },
+  deleteAction: { backgroundColor: '#E24B4A', justifyContent: 'center', alignItems: 'center', width: 80, borderRadius: radius.lg, marginLeft: 6 },
+  deleteActionIcon: { fontSize: 18 },
+  deleteActionTxt: { fontSize: font.xs, fontWeight: '600', color: '#fff', marginTop: 2 },
   empty: { fontSize: font.sm, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

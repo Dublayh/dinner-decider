@@ -65,8 +65,8 @@ export default function EatOutFilters() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
+        <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
+          <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
         </Pressable>
 
         <Text style={[styles.heading, { color: colors.textPrimary }]}>
@@ -155,8 +155,8 @@ export default function EatOutFilters() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
-  backBtn: { marginBottom: spacing.lg },
-  backTxt: { fontSize: font.md },
+  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
   heading: { fontSize: 36, fontWeight: '800', lineHeight: 42, marginBottom: spacing.lg },
   favToggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, marginBottom: spacing.lg },
   favIcon: { fontSize: 22 },

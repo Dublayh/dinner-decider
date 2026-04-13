@@ -84,8 +84,8 @@ export default function AddRecipe() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text>
+        <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
+          <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
         </Pressable>
         <Text style={[styles.heading, { color: colors.textPrimary }]}>Add Recipe</Text>
 
@@ -202,8 +202,8 @@ export default function AddRecipe() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 60 },
-  backBtn: { marginBottom: spacing.lg },
-  backTxt: { fontSize: font.md },
+  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
   heading: { fontSize: 28, fontWeight: '700', marginBottom: spacing.lg },
   label: { fontSize: font.xs, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
   subLabel: { fontSize: font.xs, fontWeight: '600', marginBottom: 6, marginTop: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },

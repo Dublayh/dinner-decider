@@ -128,7 +128,7 @@ export default function RecipeDetail() {
 
   if (!recipe) return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <Pressable onPress={() => router.back()} style={styles.backBtn}><Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text></Pressable>
+      <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
       <Text style={[styles.error, { color: colors.textMuted }]}>Recipe not found.</Text>
     </SafeAreaView>
   );
@@ -139,7 +139,7 @@ export default function RecipeDetail() {
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.topRow}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}><Text style={[styles.backTxt, { color: colors.primary }]}>← Back</Text></Pressable>
+            <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
             <View style={styles.topActions}>
               <Pressable onPress={() => { setEditing(true); ensureImportableLoaded(); }} style={[styles.editBtn, { backgroundColor: colors.primaryLight }]}><Text style={[styles.editBtnTxt, { color: colors.primaryDark }]}>Edit</Text></Pressable>
               <Pressable onPress={handleDelete} style={[styles.deleteActionBtn, { backgroundColor: colors.dangerLight }]}><Text style={[styles.deleteBtnTxt, { color: colors.danger }]}>Delete</Text></Pressable>
@@ -230,7 +230,7 @@ export default function RecipeDetail() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.topRow}>
-          <Pressable onPress={() => setEditing(false)} style={styles.backBtn}><Text style={[styles.backTxt, { color: colors.primary }]}>← Cancel</Text></Pressable>
+          <Pressable onPress={() => setEditing(false)} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
           <Pressable style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnTxt}>Save</Text>}
           </Pressable>
@@ -356,8 +356,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 60 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
-  backBtn: {},
-  backTxt: { fontSize: font.md },
+  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
   topActions: { flexDirection: 'row', gap: 10 },
   editBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
   editBtnTxt: { fontWeight: '600', fontSize: font.sm },
