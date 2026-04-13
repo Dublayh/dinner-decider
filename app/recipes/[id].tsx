@@ -157,8 +157,7 @@ export default function RecipeDetail() {
     }
 
     try {
-      await shareContent(lines.join('
-'), recipe.name);
+      await shareContent(lines.join('\n'), recipe.name);
     } catch (e: any) { Alert.alert('Error', e.message); }
   }
 
