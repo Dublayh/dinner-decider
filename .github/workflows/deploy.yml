@@ -43,7 +43,7 @@ jobs:
           sed -i 's|href="/assets/|href="/dinner-decider/assets/|g' dist/index.html
           sed -i 's|href="/favicon|href="/dinner-decider/favicon|g' dist/index.html
           cp dist/index.html dist/404.html
-          find dist/_expo -name "*.js" -exec sed -i 's|"/assets/|"/dinner-decider/assets/|g' {} \;
+          find dist/_expo -name "*.js" -exec sed -i 's|/assets/node_modules/expo-router|/dinner-decider/assets/node_modules/expo-router|g' {} \;
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
