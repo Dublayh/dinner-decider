@@ -22,7 +22,10 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
     const canvas = canvasRef.current;
     if (!canvas || !items.length) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
     const R = size / 2;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size, size);
 
     if (items.length === 1) {
@@ -63,6 +66,13 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
   }
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.scale(dpr, dpr);
     drawWheel(0);
   }, [items, size]);
 
@@ -116,9 +126,9 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
       <View style={[styles.pointer, { left: size / 2 - 12, borderTopColor: colors.primary }]} />
       <canvas
         ref={canvasRef}
-        width={size}
-        height={size}
-        style={{ borderRadius: size / 2 }}
+        width={size * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)}
+        height={size * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
       />
       <Pressable
         style={[styles.spinBtn, { width: size * 0.6, backgroundColor: colors.primary }]}
