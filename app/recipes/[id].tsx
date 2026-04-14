@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, Image, ActivityIndicator, TextInput, Alert, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { shareContent } from '@/lib/share';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import KeyboardScrollView from '@/components/KeyboardScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCustomRecipeById, updateCustomRecipe, deleteCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
+import { supabase } from '@/lib/supabase';
 import type { Recipe, Ingredient, EffortLevel } from '@/types';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -49,12 +51,11 @@ function formatAmount(n: number): string {
   return n.toFixed(1).replace(/\.0$/, '');
 }
 
-function scaleAmount(amount: string, baseServings: number, newServings: number): string {
-  if (baseServings === newServings) return amount;
+function scaleAmount(amount: string, _base: number, multiplier: number): string {
+  if (multiplier === 1) return amount;
   const parsed = parseAmount(amount);
   if (parsed === null) return amount;
-  const scaled = (parsed * newServings) / baseServings;
-  return formatAmount(scaled);
+  return formatAmount(parsed * multiplier);
 }
 
 type EditSection = { name: string; ingredients: Ingredient[]; steps: string[] };
@@ -81,8 +82,10 @@ export default function RecipeDetail() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [showAllIngredients, setShowAllIngredients] = useState(false);
-  const [scaledServings, setScaledServings] = useState<number | null>(null);
+  const [scale, setScale] = useState(1);
   const [editName, setEditName] = useState('');
   const [editCuisine, setEditCuisine] = useState('');
   const [editEffort, setEditEffort] = useState<EffortLevel>('medium');
@@ -119,7 +122,8 @@ export default function RecipeDetail() {
     getCustomRecipeById(id).then(r => {
       setRecipe(r);
       if (r) {
-        setScaledServings(r.servings);
+        setScale(1);
+        setEditImageUrl(r.imageUrl ?? '');
         const e = recipeToEdit(r);
         setEditName(e.name); setEditCuisine(e.cuisine); setEditEffort(e.effort);
         setEditServings(e.servings); setEditMinutes(e.readyInMinutes);
@@ -145,13 +149,47 @@ export default function RecipeDetail() {
   const addSecStep = (si: number) => setEditSections(prev => prev.map((s, idx) => idx === si ? { ...s, steps: [...s.steps, ''] } : s));
   const remSecStep = (si: number, ii: number) => setEditSections(prev => prev.map((s, idx) => idx === si ? { ...s, steps: s.steps.filter((_, jdx) => jdx !== ii) } : s));
 
+  async function handlePickImage() {
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permission needed', 'Please allow photo access.'); return; }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [16, 9], quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploadingImage(true);
+    try {
+      const asset = result.assets[0];
+      const ext = asset.uri.split('.').pop() ?? 'jpg';
+      const fileName = `recipe-${id}-${Date.now()}.${ext}`;
+
+      // Fetch the image and upload to Supabase Storage
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const { data, error } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, blob, { contentType: `image/${ext}`, upsert: true });
+
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('recipe-images').getPublicUrl(fileName);
+      setEditImageUrl(publicUrl);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   async function handleSave() {
     if (!id || !recipe) return;
     setSaving(true);
     try {
       const cleaned = useSections
-        ? { ...recipe, name: editName.trim(), cuisine: editCuisine, effort: editEffort, servings: parseInt(editServings) || 2, readyInMinutes: parseInt(editMinutes) || 0, ingredients: [], steps: [], sections: editSections.map(s => ({ name: s.name, ingredients: s.ingredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })), steps: s.steps.filter(x => x.trim()).map((x, idx) => ({ number: idx + 1, step: x.trim() })) })) }
-        : { ...recipe, name: editName.trim(), cuisine: editCuisine, effort: editEffort, servings: parseInt(editServings) || 2, readyInMinutes: parseInt(editMinutes) || 0, ingredients: editIngredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })), steps: editSteps.filter(s => s.trim()).map((s, idx) => ({ number: idx + 1, step: s.trim() })), sections: [] };
+        ? { ...recipe, name: editName.trim(), cuisine: editCuisine, effort: editEffort, servings: parseInt(editServings) || 2, readyInMinutes: parseInt(editMinutes) || 0, imageUrl: editImageUrl || undefined, ingredients: [], steps: [], sections: editSections.map(s => ({ name: s.name, ingredients: s.ingredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })), steps: s.steps.filter(x => x.trim()).map((x, idx) => ({ number: idx + 1, step: x.trim() })) })) }
+        : { ...recipe, name: editName.trim(), cuisine: editCuisine, effort: editEffort, servings: parseInt(editServings) || 2, readyInMinutes: parseInt(editMinutes) || 0, imageUrl: editImageUrl || undefined, ingredients: editIngredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })), steps: editSteps.filter(s => s.trim()).map((s, idx) => ({ number: idx + 1, step: s.trim() })), sections: [] };
       const updated = await updateCustomRecipe(id, cleaned);
       setRecipe(updated); setEditing(false);
     } catch (e: any) { Alert.alert('Error', e.message); }
@@ -241,14 +279,21 @@ export default function RecipeDetail() {
             {[recipe.cuisine, EFFORT_LABEL[recipe.effort], recipe.readyInMinutes > 0 ? `⏱ ${recipe.readyInMinutes} min` : null].filter(Boolean).map((m, i) => (
               <View key={i} style={[styles.metaChip, { backgroundColor: colors.bgMuted }]}><Text style={[styles.metaChipTxt, { color: colors.textSecondary }]}>{m}</Text></View>
             ))}
-            <View style={[styles.servingsStepper, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-              <Pressable onPress={() => setScaledServings(s => Math.max(1, (s ?? recipe.servings) - 1))} hitSlop={8} style={styles.stepperBtn}>
-                <Text style={[styles.stepperBtnTxt, { color: colors.primary }]}>−</Text>
-              </Pressable>
-              <Text style={[styles.stepperValue, { color: colors.primaryDark }]}>👤 {scaledServings ?? recipe.servings}</Text>
-              <Pressable onPress={() => setScaledServings(s => (s ?? recipe.servings) + 1)} hitSlop={8} style={styles.stepperBtn}>
-                <Text style={[styles.stepperBtnTxt, { color: colors.primary }]}>+</Text>
-              </Pressable>
+            <View style={[styles.scaleGroup, { borderColor: colors.primary, backgroundColor: colors.bgMuted }]}>
+              {[1, 2, 3].map((s, i) => (
+                <Pressable
+                  key={s}
+                  onPress={() => setScale(s)}
+                  style={[
+                    styles.scaleBtn,
+                    scale === s && { backgroundColor: colors.primary },
+                    i === 0 && styles.scaleBtnFirst,
+                    i === 2 && styles.scaleBtnLast,
+                  ]}
+                >
+                  <Text style={[styles.scaleBtnTxt, { color: scale === s ? '#fff' : colors.textSecondary }]}>{s}x</Text>
+                </Pressable>
+              ))}
             </View>
           </View>
 
@@ -265,7 +310,7 @@ export default function RecipeDetail() {
                   {sec.name ? <Text style={[styles.allIngSectionName, { color: colors.textMuted }]}>{sec.name}</Text> : null}
                   {sec.ingredients.map((ing, i) => (
                     <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
-                      <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, recipe.servings, scaledServings ?? recipe.servings)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
+                      <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, 1, scale)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                       <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                     </View>
                   ))}
@@ -281,7 +326,7 @@ export default function RecipeDetail() {
                 <Text style={[styles.sectionLabel, { color: colors.sectionLabel }]}>Ingredients</Text>
                 {sec.ingredients.map((ing, i) => (
                   <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, recipe.servings, scaledServings ?? recipe.servings)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
+                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, 1, scale)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                     <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                   </View>
                 ))}
@@ -302,7 +347,7 @@ export default function RecipeDetail() {
               ? <Text style={[styles.empty, { color: colors.textMuted }]}>No ingredients listed.</Text>
               : recipe.ingredients.map((ing, i) => (
                   <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, recipe.servings, scaledServings ?? recipe.servings)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
+                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, 1, scale)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                     <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                   </View>
                 ))
@@ -334,6 +379,27 @@ export default function RecipeDetail() {
           </Pressable>
         </View>
         <Text style={[styles.editHeading, { color: colors.textPrimary }]}>Edit Recipe</Text>
+
+        {/* Photo */}
+        <Text style={[styles.label, { color: colors.sectionLabel }]}>Photo</Text>
+        <Pressable
+          style={[styles.imagePicker, { borderColor: colors.border, backgroundColor: colors.bgCard }]}
+          onPress={handlePickImage}
+          disabled={uploadingImage}
+        >
+          {uploadingImage ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : editImageUrl ? (
+            <Image source={{ uri: editImageUrl }} style={styles.imagePreview} resizeMode="cover" />
+          ) : (
+            <Text style={[styles.imagePickerTxt, { color: colors.textMuted }]}>📷 Tap to add a photo</Text>
+          )}
+        </Pressable>
+        {editImageUrl ? (
+          <Pressable onPress={() => setEditImageUrl('')} style={styles.removeImageBtn}>
+            <Text style={[styles.removeImageTxt, { color: colors.danger }]}>✕ Remove photo</Text>
+          </Pressable>
+        ) : null}
 
         <Text style={[styles.label, { color: colors.sectionLabel }]}>Name</Text>
         <TextInput style={inputStyle} value={editName} onChangeText={setEditName} />
@@ -463,14 +529,20 @@ const styles = StyleSheet.create({
   deleteActionBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
   deleteBtnTxt: { fontWeight: '600', fontSize: font.sm },
   image: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: spacing.md },
+  imagePicker: { width: '100%', height: 180, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm, overflow: 'hidden' },
+  imagePreview: { width: '100%', height: '100%' },
+  imagePickerTxt: { fontSize: font.sm },
+  removeImageBtn: { alignItems: 'center', marginBottom: spacing.md },
+  removeImageTxt: { fontSize: font.sm, fontWeight: '600' },
   title: { fontSize: 26, fontWeight: '700', marginBottom: spacing.sm },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.lg },
   metaChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full },
   metaChipTxt: { fontSize: font.xs, fontWeight: '500' },
-  servingsStepper: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.full, borderWidth: 1, paddingHorizontal: 4 },
-  stepperBtn: { paddingHorizontal: 10, paddingVertical: 5 },
-  stepperBtnTxt: { fontSize: font.md, fontWeight: '700', lineHeight: 20 },
-  stepperValue: { fontSize: font.xs, fontWeight: '700', minWidth: 52, textAlign: 'center' },
+  scaleGroup: { flexDirection: 'row', borderRadius: radius.full, borderWidth: 1.5, overflow: 'hidden' },
+  scaleBtn: { paddingHorizontal: 18, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  scaleBtnFirst: { borderTopLeftRadius: radius.full, borderBottomLeftRadius: radius.full },
+  scaleBtnLast: { borderTopRightRadius: radius.full, borderBottomRightRadius: radius.full },
+  scaleBtnTxt: { fontSize: font.sm, fontWeight: '700' },
   allIngBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: radius.md, alignItems: 'center', marginBottom: spacing.md, borderWidth: 1 },
   allIngBtnTxt: { fontSize: font.sm, fontWeight: '600' },
   allIngCard: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, marginBottom: spacing.lg },

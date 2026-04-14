@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal, Animated, Dimensions, Easing } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, TextInput, Share, Modal, Animated, Dimensions, Easing, Platform } from 'react-native';
 import KeyboardScrollView from '@/components/KeyboardScrollView';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   dropdownItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   dropdownTxt: { fontSize: font.sm, fontWeight: '500' },
   searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, borderWidth: 1.5, marginBottom: spacing.md, paddingHorizontal: 12 },
-  searchInput: { flex: 1, paddingVertical: 11, fontSize: font.sm },
+  searchInput: { flex: 1, paddingVertical: 11, fontSize: font.sm, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}) },
   searchClear: { padding: 4 },
   searchClearTxt: { fontSize: 14 },
   actionRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },

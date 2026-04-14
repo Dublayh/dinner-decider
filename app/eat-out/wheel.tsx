@@ -1,12 +1,14 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Linking, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, Alert, Linking, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withSequence, withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
-import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput as BSTextInput } from '@gorhom/bottom-sheet';
+import { TextInput } from 'react-native';
+const BottomSheetTextInput = Platform.OS === 'web' ? TextInput : BSTextInput;
 import * as Location from 'expo-location';
 import { useEatOutStore } from '@/store/wheelStore';
 import SpinWheel from '@/components/SpinWheelUniversal';

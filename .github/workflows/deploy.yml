@@ -44,6 +44,10 @@ jobs:
           icon_tags = '<link rel="apple-touch-icon" sizes="1024x1024" href="/assets/icon.png"><link rel="icon" type="image/png" sizes="1024x1024" href="/assets/icon.png">'
           html = html.replace('</head>', icon_tags + '</head>')
 
+          # Inject global CSS to remove browser default focus rings on inputs
+          global_css = '<style>input:focus,textarea:focus{outline:none!important;box-shadow:none!important;}</style>'
+          html = html.replace('</head>', global_css + '</head>')
+
           with open('dist/index.html', 'w') as f:
               f.write(html)
 

@@ -1,8 +1,15 @@
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Platform } from 'react-native';
 import React from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
+
+// Remove browser focus outlines on web
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = 'input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }';
+  document.head.appendChild(style);
+}
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
