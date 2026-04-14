@@ -30,7 +30,12 @@ jobs:
       - name: Fix paths and inject PWA icons
         run: |
           python3 << 'PYEOF'
-          import glob
+          import glob, shutil, os
+
+          # Copy icon files into dist so they're served
+          os.makedirs('dist/assets', exist_ok=True)
+          shutil.copy('assets/icon.png', 'dist/assets/icon.png')
+          shutil.copy('assets/favicon.png', 'dist/assets/favicon.png')
 
           with open('dist/index.html', 'r') as f:
               html = f.read()
