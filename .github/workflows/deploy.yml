@@ -27,7 +27,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web
 
-      - name: Fix asset paths
+      - name: Fix paths and inject PWA icons
         run: |
           python3 << 'PYEOF'
           import glob
@@ -35,10 +35,18 @@ jobs:
           with open('dist/index.html', 'r') as f:
               html = f.read()
 
+          # Inject apple touch icon and PWA icon links
+          icon_tags = '<link rel="apple-touch-icon" sizes="1024x1024" href="/assets/icon.png"><link rel="icon" type="image/png" sizes="1024x1024" href="/assets/icon.png">'
+          html = html.replace('</head>', icon_tags + '</head>')
+
+          with open('dist/index.html', 'w') as f:
+              f.write(html)
+
+          # Copy as 404 fallback
           with open('dist/404.html', 'w') as f:
               f.write(html)
 
-          # Add .nojekyll to prevent GitHub Pages from ignoring _expo folder
+          # Add .nojekyll
           open('dist/.nojekyll', 'w').close()
 
           print('Done')
