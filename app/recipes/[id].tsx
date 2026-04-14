@@ -14,6 +14,49 @@ const EFFORT_LABEL: Record<string, string> = {
   quick: 'Quick (< 30 min)', medium: 'Medium (30–60 min)', weekend: 'Weekend project',
 };
 
+// Parse amount string to a number (handles "1/2", "1 1/2", "2-3", decimals)
+function parseAmount(amt: string): number | null {
+  if (!amt?.trim()) return null;
+  const s = amt.trim();
+  // Range like "2-3" — use the lower
+  const range = s.match(/^([\d.]+)\s*[-–]\s*([\d.]+)$/);
+  if (range) return parseFloat(range[1]);
+  // Mixed number like "1 1/2"
+  const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3]);
+  // Simple fraction like "1/2"
+  const frac = s.match(/^(\d+)\/(\d+)$/);
+  if (frac) return parseInt(frac[1]) / parseInt(frac[2]);
+  // Plain number
+  const num = parseFloat(s);
+  return isNaN(num) ? null : num;
+}
+
+// Format a number back to a nice fraction/decimal string
+function formatAmount(n: number): string {
+  if (n === Math.floor(n)) return String(n);
+  const fractions: [number, string][] = [
+    [0.125, '⅛'], [0.25, '¼'], [0.333, '⅓'], [0.5, '½'],
+    [0.667, '⅔'], [0.75, '¾'],
+  ];
+  const whole = Math.floor(n);
+  const dec = n - whole;
+  for (const [val, sym] of fractions) {
+    if (Math.abs(dec - val) < 0.05) {
+      return whole > 0 ? `${whole} ${sym}` : sym;
+    }
+  }
+  return n.toFixed(1).replace(/\.0$/, '');
+}
+
+function scaleAmount(amount: string, baseServings: number, newServings: number): string {
+  if (baseServings === newServings) return amount;
+  const parsed = parseAmount(amount);
+  if (parsed === null) return amount;
+  const scaled = (parsed * newServings) / baseServings;
+  return formatAmount(scaled);
+}
+
 type EditSection = { name: string; ingredients: Ingredient[]; steps: string[] };
 
 function recipeToEdit(recipe: Recipe) {
@@ -39,6 +82,7 @@ export default function RecipeDetail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAllIngredients, setShowAllIngredients] = useState(false);
+  const [scaledServings, setScaledServings] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editCuisine, setEditCuisine] = useState('');
   const [editEffort, setEditEffort] = useState<EffortLevel>('medium');
@@ -75,6 +119,7 @@ export default function RecipeDetail() {
     getCustomRecipeById(id).then(r => {
       setRecipe(r);
       if (r) {
+        setScaledServings(r.servings);
         const e = recipeToEdit(r);
         setEditName(e.name); setEditCuisine(e.cuisine); setEditEffort(e.effort);
         setEditServings(e.servings); setEditMinutes(e.readyInMinutes);
@@ -157,7 +202,8 @@ export default function RecipeDetail() {
     }
 
     try {
-      await shareContent(lines.join('\n'), recipe.name);
+      const text = lines.join('\n');
+      await shareContent(text, recipe.name);
     } catch (e: any) { Alert.alert('Error', e.message); }
   }
 
@@ -192,9 +238,18 @@ export default function RecipeDetail() {
           {recipe.imageUrl && <Image source={{ uri: recipe.imageUrl }} style={styles.image} resizeMode="cover" />}
           <Text style={[styles.title, { color: colors.textPrimary }]}>{recipe.name}</Text>
           <View style={styles.metaRow}>
-            {[recipe.cuisine, EFFORT_LABEL[recipe.effort], recipe.readyInMinutes > 0 ? `⏱ ${recipe.readyInMinutes} min` : null, `👤 ${recipe.servings}`].filter(Boolean).map((m, i) => (
+            {[recipe.cuisine, EFFORT_LABEL[recipe.effort], recipe.readyInMinutes > 0 ? `⏱ ${recipe.readyInMinutes} min` : null].filter(Boolean).map((m, i) => (
               <View key={i} style={[styles.metaChip, { backgroundColor: colors.bgMuted }]}><Text style={[styles.metaChipTxt, { color: colors.textSecondary }]}>{m}</Text></View>
             ))}
+            <View style={[styles.servingsStepper, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+              <Pressable onPress={() => setScaledServings(s => Math.max(1, (s ?? recipe.servings) - 1))} hitSlop={8} style={styles.stepperBtn}>
+                <Text style={[styles.stepperBtnTxt, { color: colors.primary }]}>−</Text>
+              </Pressable>
+              <Text style={[styles.stepperValue, { color: colors.primaryDark }]}>👤 {scaledServings ?? recipe.servings}</Text>
+              <Pressable onPress={() => setScaledServings(s => (s ?? recipe.servings) + 1)} hitSlop={8} style={styles.stepperBtn}>
+                <Text style={[styles.stepperBtnTxt, { color: colors.primary }]}>+</Text>
+              </Pressable>
+            </View>
           </View>
 
           {hasSections && (
@@ -210,7 +265,7 @@ export default function RecipeDetail() {
                   {sec.name ? <Text style={[styles.allIngSectionName, { color: colors.textMuted }]}>{sec.name}</Text> : null}
                   {sec.ingredients.map((ing, i) => (
                     <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
-                      <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{ing.amount}{ing.unit ? ` ${ing.unit}` : ''}</Text>
+                      <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, recipe.servings, scaledServings ?? recipe.servings)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                       <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                     </View>
                   ))}
@@ -226,7 +281,7 @@ export default function RecipeDetail() {
                 <Text style={[styles.sectionLabel, { color: colors.sectionLabel }]}>Ingredients</Text>
                 {sec.ingredients.map((ing, i) => (
                   <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{ing.amount}{ing.unit ? ` ${ing.unit}` : ''}</Text>
+                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, recipe.servings, scaledServings ?? recipe.servings)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                     <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                   </View>
                 ))}
@@ -247,7 +302,7 @@ export default function RecipeDetail() {
               ? <Text style={[styles.empty, { color: colors.textMuted }]}>No ingredients listed.</Text>
               : recipe.ingredients.map((ing, i) => (
                   <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{ing.amount}{ing.unit ? ` ${ing.unit}` : ''}</Text>
+                    <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, recipe.servings, scaledServings ?? recipe.servings)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                     <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                   </View>
                 ))
@@ -412,6 +467,10 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.lg },
   metaChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full },
   metaChipTxt: { fontSize: font.xs, fontWeight: '500' },
+  servingsStepper: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.full, borderWidth: 1, paddingHorizontal: 4 },
+  stepperBtn: { paddingHorizontal: 10, paddingVertical: 5 },
+  stepperBtnTxt: { fontSize: font.md, fontWeight: '700', lineHeight: 20 },
+  stepperValue: { fontSize: font.xs, fontWeight: '700', minWidth: 52, textAlign: 'center' },
   allIngBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: radius.md, alignItems: 'center', marginBottom: spacing.md, borderWidth: 1 },
   allIngBtnTxt: { fontSize: font.sm, fontWeight: '600' },
   allIngCard: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, marginBottom: spacing.lg },
