@@ -30,36 +30,50 @@ export default function EatOutFilters() {
     setFilters({ vibes: next });
   };
 
-  async function handleBuildWheel() {
+  async function getRestaurants(): Promise<Restaurant[] | null> {
     setLoading(true);
     try {
-      let restaurants: Restaurant[] = [];
       if (favoritesOnly) {
-        restaurants = await getFavoriteRestaurants();
+        const restaurants = await getFavoriteRestaurants();
         if (!restaurants.length) {
           Alert.alert('No favorites yet', 'Star some restaurants on the wheel first!');
-          return;
+          return null;
         }
+        return restaurants;
       } else {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Location needed', 'Please allow location access to find nearby restaurants.');
-          return;
+          return null;
         }
         const loc = await Location.getCurrentPositionAsync({});
-        restaurants = await fetchNearbyRestaurants(loc.coords.latitude, loc.coords.longitude, filters);
+        const restaurants = await fetchNearbyRestaurants(loc.coords.latitude, loc.coords.longitude, filters);
         if (!restaurants.length) {
           Alert.alert('No restaurants found', 'Try adjusting your filters or radius.');
-          return;
+          return null;
         }
+        return restaurants;
       }
-      setWheelItems(restaurants.map((r): WheelItem<Restaurant> => ({ id: r.id, label: r.name, data: r })));
-      router.push('/eat-out/wheel');
     } catch (e: any) {
       Alert.alert('Error', e.message);
+      return null;
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleBuildWheel() {
+    const restaurants = await getRestaurants();
+    if (!restaurants) return;
+    setWheelItems(restaurants.map((r): WheelItem<Restaurant> => ({ id: r.id, label: r.name, data: r })));
+    router.push('/eat-out/wheel');
+  }
+
+  async function handleShowMap() {
+    const restaurants = await getRestaurants();
+    if (!restaurants) return;
+    setWheelItems(restaurants.map((r): WheelItem<Restaurant> => ({ id: r.id, label: r.name, data: r })));
+    router.push('/eat-out/map');
   }
 
   return (
@@ -140,13 +154,22 @@ export default function EatOutFilters() {
           </>
         )}
 
-        <Pressable
-          style={[styles.btn, { backgroundColor: colors.primary, opacity: isLoading ? 0.6 : 1 }]}
-          onPress={handleBuildWheel}
-          disabled={isLoading}
-        >
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>Build the Wheel 🎡</Text>}
-        </Pressable>
+        <View style={styles.btnRow}>
+          <Pressable
+            style={[styles.btn, styles.btnSecondary, { borderColor: colors.primary, opacity: isLoading ? 0.6 : 1 }]}
+            onPress={handleShowMap}
+            disabled={isLoading}
+          >
+            {isLoading ? <ActivityIndicator color={colors.primary} /> : <Text style={[styles.btnTxt, { color: colors.primary }]}>Map 🗺️</Text>}
+          </Pressable>
+          <Pressable
+            style={[styles.btn, styles.btnPrimary, { backgroundColor: colors.primary, opacity: isLoading ? 0.6 : 1 }]}
+            onPress={handleBuildWheel}
+            disabled={isLoading}
+          >
+            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnTxt}>Wheel 🎡</Text>}
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -170,6 +193,9 @@ const styles = StyleSheet.create({
   vibeCard: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.lg, borderWidth: 1.5 },
   vibeEmoji: { fontSize: 18 },
   vibeName: { fontSize: font.sm },
-  btn: { borderRadius: radius.lg, padding: 16, alignItems: 'center' },
+  btnRow: { flexDirection: 'row', gap: spacing.sm },
+  btn: { flex: 1, borderRadius: radius.lg, padding: 16, alignItems: 'center' },
+  btnPrimary: {},
+  btnSecondary: { borderWidth: 1.5, backgroundColor: 'transparent' },
   btnTxt: { color: '#fff', fontSize: font.md, fontWeight: '700' },
 });

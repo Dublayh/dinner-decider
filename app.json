@@ -22,7 +22,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.dublayh.dinnerdecider"
+      "package": "com.dublayh.dinnerdecider.preview"
     },
     "web": {
       "favicon": "./assets/favicon.png",
