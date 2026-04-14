@@ -29,7 +29,18 @@ function HeroGlow({ width, isDark }: { width: number; isDark: boolean }) {
     ? ['rgba(212,130,48,0.30)', 'rgba(212,130,48,0.16)', 'rgba(212,130,48,0.06)', 'rgba(212,130,48,0.00)']
     : ['rgba(193,122,60,0.13)', 'rgba(193,122,60,0.07)', 'rgba(193,122,60,0.02)', 'rgba(193,122,60,0.00)'];
 
-  return Platform.OS === 'web' ? null : (
+  return Platform.OS === 'web' ? (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute', top: -60, left: 0, width, height: width * 1.1,
+        // @ts-ignore - web only CSS property
+        background: isDark
+          ? `radial-gradient(ellipse at 50% 0%, rgba(212,130,48,0.28) 0%, rgba(212,130,48,0.12) 35%, rgba(212,130,48,0.04) 65%, transparent 100%)`
+          : `radial-gradient(ellipse at 50% 0%, rgba(193,122,60,0.13) 0%, rgba(193,122,60,0.06) 35%, rgba(193,122,60,0.02) 65%, transparent 100%)`,
+      }}
+    />
+  ) : (
     <Canvas
       style={{ position: 'absolute', top: -60, left: 0, width, height: width * 1.1 }}
       pointerEvents="none"
@@ -64,7 +75,10 @@ function GradCard({ gradColors, glowColor, onPress, children, borderColor }: Gra
       style={({ pressed }) => [
         styles.cardOuter,
         { borderColor: borderColor ?? 'transparent' },
-        Platform.OS === 'web' && { backgroundColor: gradColors[1] },
+        Platform.OS === 'web' && {
+          // @ts-ignore - web only CSS property
+          background: `linear-gradient(135deg, ${gradColors[0]}, ${gradColors[1]} 55%, ${gradColors[2]})`,
+        },
         pressed && styles.pressed,
       ]}
       onPress={onPress}
