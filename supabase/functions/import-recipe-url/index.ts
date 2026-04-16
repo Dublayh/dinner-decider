@@ -152,6 +152,6 @@ serve(async (req) => {
     return Response.json({ recipe }, { headers: corsHeaders });
   } catch (err: any) {
     console.error('Import error:', err.message);
-    return Response.json({ error: err.message }, { status: 400, headers: corsHeaders });
+    return Response.json({ error: err.message }, { headers: corsHeaders });
   }
 });

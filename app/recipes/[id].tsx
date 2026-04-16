@@ -9,6 +9,7 @@ import { getCustomRecipeById, updateCustomRecipe, deleteCustomRecipe, getCustomR
 import { supabase } from '@/lib/supabase';
 import type { Recipe, Ingredient, EffortLevel } from '@/types';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
+import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
@@ -75,6 +76,7 @@ function recipeToEdit(recipe: Recipe) {
 }
 
 export default function RecipeDetail() {
+  const { showToast, showConfirm, toast, confirm, dismissConfirm } = useAppAlert();
   const router = useRouter();
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -152,7 +154,7 @@ export default function RecipeDetail() {
   async function handlePickImage() {
     if (Platform.OS !== 'web') {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') { Alert.alert('Permission needed', 'Please allow photo access.'); return; }
+      if (status !== 'granted') { showToast('Please allow photo access.', 'error'); return; }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -177,7 +179,7 @@ export default function RecipeDetail() {
       const { data: { publicUrl } } = supabase.storage.from('recipe-images').getPublicUrl(fileName);
       setEditImageUrl(publicUrl);
     } catch (e: any) {
-      Alert.alert('Upload failed', e.message);
+      showToast(e.message, 'error');
     } finally {
       setUploadingImage(false);
     }
@@ -192,18 +194,16 @@ export default function RecipeDetail() {
         : { ...recipe, name: editName.trim(), cuisine: editCuisine, effort: editEffort, servings: parseInt(editServings) || 2, readyInMinutes: parseInt(editMinutes) || 0, imageUrl: editImageUrl || undefined, ingredients: editIngredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })), steps: editSteps.filter(s => s.trim()).map((s, idx) => ({ number: idx + 1, step: s.trim() })), sections: [] };
       const updated = await updateCustomRecipe(id, cleaned);
       setRecipe(updated); setEditing(false);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
   }
 
   async function handleDelete() {
     if (!id) return;
-    Alert.alert('Delete recipe', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteCustomRecipe(id); router.back(); } catch (e: any) { Alert.alert('Error', e.message); }
-      }},
-    ]);
+    showConfirm('Delete recipe', 'Are you sure? This cannot be undone.', async () => {
+      try { await deleteCustomRecipe(id); router.back(); }
+      catch (e: any) { showToast(e.message, 'error'); }
+    }, { label: 'Delete', destructive: true });
   }
 
   async function handleShare() {
@@ -242,7 +242,7 @@ export default function RecipeDetail() {
     try {
       const text = lines.join('\n');
       await shareContent(text, recipe.name);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
   }
 
   // Shared input style helper
@@ -252,6 +252,8 @@ export default function RecipeDetail() {
 
   if (!recipe) return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
       <Text style={[styles.error, { color: colors.textMuted }]}>Recipe not found.</Text>
     </SafeAreaView>
@@ -261,6 +263,8 @@ export default function RecipeDetail() {
     const hasSections = (recipe.sections ?? []).length > 0;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
         <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
           <View style={styles.topRow}>
             <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
@@ -371,6 +375,8 @@ export default function RecipeDetail() {
   // EDIT MODE
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <View style={styles.topRow}>
           <Pressable onPress={() => setEditing(false)} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>

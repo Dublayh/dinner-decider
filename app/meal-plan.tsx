@@ -6,9 +6,12 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
-import { getMealPlanForRange, setMealPlanEntry, clearMealPlanEntry, getShoppingChecks, saveShoppingChecks } from '@/lib/mealPlan';
+import { getMealPlanForRange, setMealPlanEntry, clearMealPlanEntry } from '@/lib/mealPlan';
+import { addGroceryItems, getGroceryItems } from '@/lib/groceryList';
+import GroceryListModal from '@/components/GroceryListModal';
 import { getCustomRecipes } from '@/lib/customRecipes';
 import { useMealPlanSpinStore } from '@/store/wheelStore';
 import type { MealPlanEntry } from '@/lib/mealPlan';
@@ -92,6 +95,7 @@ function BottomSheetModal({ visible, onClose, children }: {
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 export default function MealPlanScreen() {
+  const { showToast, toast } = useAppAlert();
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -110,24 +114,31 @@ export default function MealPlanScreen() {
   const [saving, setSaving] = useState(false);
   const [showShoppingList, setShowShoppingList] = useState(false);
   const [recipeSearch, setRecipeSearch] = useState('');
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
 
-  // Load checks when shopping list opens
   async function openShoppingList() {
+    // Push this week's recipe ingredients into the shared grocery list (skip existing)
+    if (weekRecipes.length > 0) {
+      try {
+        const existing = await getGroceryItems();
+        const existingKeys = new Set(existing.map(i => `${i.text}|${i.source}`));
+        const toAdd: { text: string; amount?: string; unit?: string; source: string }[] = [];
+        for (const r of weekRecipes) {
+          const ings = [
+            ...(r.ingredients ?? []),
+            ...(r.sections?.flatMap((s: any) => s.ingredients ?? []) ?? []),
+          ];
+          for (const ing of ings) {
+            if (!ing.name?.trim()) continue;
+            const key = `${ing.name}|${r.name}`;
+            if (!existingKeys.has(key)) {
+              toAdd.push({ text: ing.name, amount: ing.amount, unit: ing.unit, source: r.name });
+            }
+          }
+        }
+        if (toAdd.length > 0) await addGroceryItems(toAdd);
+      } catch {}
+    }
     setShowShoppingList(true);
-    ensureRecipesLoaded();
-    try {
-      const keys = await getShoppingChecks(weekStartStr);
-      setCheckedItems(new Set(keys));
-    } catch {}
-  }
-
-  // Save checks when shopping list closes
-  async function closeShoppingList() {
-    setShowShoppingList(false);
-    try {
-      await saveShoppingChecks(weekStartStr, Array.from(checkedItems));
-    } catch {}
   }
 
   const weekDays = getWeekDays(weekStart);
@@ -148,7 +159,7 @@ export default function MealPlanScreen() {
       const map: Record<string, MealPlanEntry> = {};
       entries.forEach(e => { map[e.plan_date] = e; });
       setPlan(map);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     finally { setLoading(false); }
   }, [rangeStart, rangeEnd]);
 
@@ -177,7 +188,7 @@ export default function MealPlanScreen() {
     try {
       await setMealPlanEntry(selectedDate, entry);
       setPlan(p => ({ ...p, [selectedDate]: { id: '', plan_date: selectedDate, ...entry } }));
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
   }
 
@@ -187,7 +198,7 @@ export default function MealPlanScreen() {
     try {
       await clearMealPlanEntry(selectedDate);
       setPlan(p => { const n = { ...p }; delete n[selectedDate]; return n; });
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
   }
 
   function handleSpin() {
@@ -195,14 +206,6 @@ export default function MealPlanScreen() {
     setPendingDate(selectedDate);
     setShowPicker(false);
     router.push('/eat-in/filters');
-  }
-
-  function toggleCheck(key: string) {
-    setCheckedItems(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
   }
 
   // Filter out sauces/spice mixes, apply search
@@ -239,6 +242,7 @@ export default function MealPlanScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
 
         <View style={styles.topBar}>
@@ -375,52 +379,7 @@ export default function MealPlanScreen() {
         </View>
       </BottomSheetModal>
 
-      {/* ── Shopping list ── */}
-      <BottomSheetModal visible={showShoppingList} onClose={closeShoppingList}>
-        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 16 }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Shopping List</Text>
-              <Text style={[styles.modalSub, { color: colors.textMuted }]}>{weekDays[0].getDate()} {MONTHS[weekDays[0].getMonth()]} – {weekDays[6].getDate()} {MONTHS[weekDays[6].getMonth()]}</Text>
-            </View>
-            <Pressable onPress={closeShoppingList} style={[styles.closeBtn, { backgroundColor: colors.bgMuted }]}>
-              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
-            </Pressable>
-          </View>
-
-          <ScrollView style={styles.shoppingScroll} contentContainerStyle={{ paddingBottom: 24 }}>
-            {weekRecipes.length === 0
-              ? <Text style={[styles.emptyTxt, { color: colors.textMuted }]}>No recipes planned this week yet.</Text>
-              : weekRecipes.map(r => {
-                  const ings = [...(r.ingredients ?? []), ...(r.sections?.flatMap(s => s.ingredients ?? []) ?? [])];
-                  return (
-                    <View key={r.id}>
-                      <View style={[styles.shoppingRecipeHeader, { backgroundColor: colors.primaryLight }]}>
-                        <Text style={[styles.shoppingRecipeName, { color: colors.primaryDark }]}>{r.name}</Text>
-                      </View>
-                      {ings.map((ing, i) => {
-                        const key = `${r.id}-${i}`;
-                        const checked = checkedItems.has(key);
-                        return (
-                          <Pressable key={key} style={[styles.shoppingRow, { borderBottomColor: colors.border }]} onPress={() => toggleCheck(key)}>
-                            <View style={[styles.shoppingCheck, {
-                              borderColor: checked ? colors.primary : colors.border,
-                              backgroundColor: checked ? colors.primary : 'transparent',
-                            }]}>
-                              {checked && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 16 }}>✓</Text>}
-                            </View>
-                            <Text style={[styles.shoppingAmt, { color: checked ? colors.textMuted : colors.textMuted }]}>{ing.amount}{ing.unit ? ` ${ing.unit}` : ''}</Text>
-                            <Text style={[styles.shoppingName, { color: checked ? colors.textMuted : colors.textPrimary, textDecorationLine: checked ? 'line-through' : 'none' }]}>{ing.name}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  );
-                })
-            }
-          </ScrollView>
-        </View>
-      </BottomSheetModal>
+      <GroceryListModal visible={showShoppingList} onClose={() => setShowShoppingList(false)} />
     </View>
   );
 }

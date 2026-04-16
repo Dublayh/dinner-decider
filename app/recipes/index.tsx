@@ -8,6 +8,7 @@ import { getCustomRecipes, deleteCustomRecipe, saveSpoonacularRecipe, addCustomR
 import { shareContent } from '@/lib/share';
 import { supabase } from '@/lib/supabase';
 import { fetchRecipes } from '@/lib/spoonacular';
+import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import type { Recipe, EatInFilters, EffortLevel } from '@/types';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -87,8 +88,8 @@ function BottomSheetModal({ visible, onClose, children, avoidKeyboard = false }:
 }
 
 const bsStyles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheetContainer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000 },
+  sheetContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1001 },
 });
 
 export default function RecipeBook() {
@@ -110,13 +111,16 @@ export default function RecipeBook() {
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 100, right: 16 });
+  const menuBtnRef = useRef<any>(null);
   const [showUrlImport, setShowUrlImport] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const { showToast, showConfirm, toast, confirm, dismissConfirm } = useAppAlert();
   const [fetchingUrl, setFetchingUrl] = useState(false);
 
   const load = useCallback(async () => {
     try { setRecipes(await getCustomRecipes()); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { showToast(e.message, 'error'); }
     finally { setLoading(false); }
   }, []);
 
@@ -135,21 +139,19 @@ export default function RecipeBook() {
   const toggleSE = (e: EffortLevel) => setSearchFilters(f => ({ ...f, efforts: f.efforts.includes(e) ? f.efforts.filter(x => x !== e) : [...f.efforts, e] }));
 
   async function handleDelete(id: string, name: string) {
-    Alert.alert('Remove recipe', `Remove "${name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: async () => {
-        try { await deleteCustomRecipe(id); setRecipes(p => p.filter(r => r.id !== id)); }
-        catch (e: any) { Alert.alert('Error', e.message); }
-      }},
-    ]);
+    const doDelete = async () => {
+      try { await deleteCustomRecipe(id); setRecipes(p => p.filter(r => r.id !== id)); showToast(`"${name}" removed.`, 'success'); }
+      catch (e: any) { showToast(e.message, 'error'); }
+    };
+    showConfirm('Remove recipe', `Remove "${name}"?`, doDelete, { label: 'Remove', destructive: true });
   }
 
 
   async function handleExport() {
-    if (!recipes.length) { Alert.alert('Nothing to export', 'Add some recipes first.'); return; }
+    if (!recipes.length) { showToast('Add some recipes first.', 'info'); return; }
     const json = JSON.stringify(recipes, null, 2);
     try { await shareContent(json, 'My Recipes'); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { showToast(e.message, 'error'); }
   }
 
   async function handleUrlImport() {
@@ -166,7 +168,7 @@ export default function RecipeBook() {
       const r = data.recipe;
       const existingNames = new Set(recipes.map((x: any) => x.name.toLowerCase()));
       if (existingNames.has(r.name.toLowerCase())) {
-        Alert.alert('Already saved', `"${r.name}" is already in your Recipe Book.`);
+        showToast(`"${r.name}" is already in your Recipe Book.`, 'error');
         return;
       }
       await addCustomRecipe({
@@ -180,9 +182,9 @@ export default function RecipeBook() {
       setShowUrlImport(false);
       setUrlInput('');
       load();
-      Alert.alert('Saved!', `"${r.name}" added to your Recipe Book.`);
+      showToast(`"${r.name}" added to your Recipe Book! 🎉`, 'success');
     } catch (e: any) {
-      Alert.alert('Could not import', e.message);
+      showToast(e.message ?? 'Could not import recipe.', 'error');
     } finally {
       setFetchingUrl(false);
     }
@@ -216,9 +218,9 @@ export default function RecipeBook() {
       setImportText('');
       load();
       const skipped = arr.length - added;
-      Alert.alert('Done', `Imported ${added} recipe${added !== 1 ? 's' : ''}.${skipped > 0 ? ` Skipped ${skipped} duplicate${skipped !== 1 ? 's' : ''}.` : ''}`);
+      showToast(`Imported ${added} recipe${added !== 1 ? 's' : ''}.${skipped > 0 ? ` Skipped ${skipped} duplicate${skipped !== 1 ? 's' : ''}.` : ''}`, 'success');
     } catch {
-      Alert.alert('Invalid JSON', 'Make sure you pasted the full exported text.');
+      showToast('Invalid JSON — make sure you pasted the full exported text.', 'error');
     } finally { setImporting(false); }
   }
 
@@ -229,7 +231,7 @@ export default function RecipeBook() {
       const saved = new Set(recipes.map(r => r.id));
       setSearchResults(results.filter(r => !saved.has(r.id)));
       setShowSearch(true); setFiltersExpanded(false);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     finally { setFinding(false); }
   }
 
@@ -238,7 +240,7 @@ export default function RecipeBook() {
       const saved = await saveSpoonacularRecipe(r);
       setRecipes(p => [saved, ...p]);
       setSearchResults(p => p.filter(x => x.id !== r.id));
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
   }
 
   const activeList = listCuisines.length + listEfforts.length;
@@ -252,6 +254,8 @@ export default function RecipeBook() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
           <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
@@ -263,36 +267,32 @@ export default function RecipeBook() {
             <Text style={[styles.sub, { color: colors.textMuted }]}>{recipes.length} saved recipe{recipes.length !== 1 ? 's' : ''}</Text>
           </View>
 
-          {/* ⋯ dropdown */}
+          {/* ⋯ menu button */}
           <View>
             <Pressable
-              onPress={() => setShowMenu(v => !v)}
+              ref={menuBtnRef}
+              onPress={() => {
+                if (menuBtnRef.current) {
+                  const el = Platform.OS === 'web'
+                    ? menuBtnRef.current
+                    : null;
+                  if (el?.getBoundingClientRect) {
+                    const rect = el.getBoundingClientRect();
+                    const screenWidth = Dimensions.get('window').width;
+                    setMenuPos({ top: rect.bottom + 4, right: screenWidth - rect.right });
+                  } else {
+                    menuBtnRef.current?.measure?.((_x: number, _y: number, w: number, h: number, px: number, py: number) => {
+                      const screenWidth = Dimensions.get('window').width;
+                      setMenuPos({ top: py + h + 4, right: screenWidth - px - w });
+                    });
+                  }
+                }
+                setShowMenu(v => !v);
+              }}
               style={[styles.menuBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
             >
               <Text style={[styles.menuBtnTxt, { color: colors.textSecondary }]}>⋯</Text>
             </Pressable>
-            {showMenu && (
-              <View style={[styles.dropdown, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-                <Pressable
-                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
-                  onPress={() => { setShowMenu(false); handleExport(); }}
-                >
-                  <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↑ Export</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
-                  onPress={() => { setShowMenu(false); setShowImport(true); }}
-                >
-                  <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↓ Import JSON</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.dropdownItem}
-                  onPress={() => { setShowMenu(false); setShowUrlImport(true); }}
-                >
-                  <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>🔗 Import from URL</Text>
-                </Pressable>
-              </View>
-            )}
           </View>
         </View>
 
@@ -455,6 +455,33 @@ export default function RecipeBook() {
         </View>
       </KeyboardScrollView>
 
+      {/* ⋯ dropdown menu as Modal so it renders above everything */}
+      {showMenu && (
+        <Modal visible transparent animationType="none" onRequestClose={() => setShowMenu(false)}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowMenu(false)} />
+          <View style={[styles.dropdown, { backgroundColor: colors.bgCard, borderColor: colors.border, top: menuPos.top, right: menuPos.right }]}>
+            <Pressable
+              style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+              onPress={() => { setShowMenu(false); handleExport(); }}
+            >
+              <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↑ Export</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+              onPress={() => { setShowMenu(false); setShowImport(true); }}
+            >
+              <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↓ Import JSON</Text>
+            </Pressable>
+            <Pressable
+              style={styles.dropdownItem}
+              onPress={() => { setShowMenu(false); setShowUrlImport(true); }}
+            >
+              <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>🔗 Import from URL</Text>
+            </Pressable>
+          </View>
+        </Modal>
+      )}
+
       {/* Import modal */}
       <BottomSheetModal visible={showImport} onClose={() => { setShowImport(false); setImportText(''); }} avoidKeyboard>
         <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
@@ -576,8 +603,8 @@ const styles = StyleSheet.create({
   menuBtn: { width: 34, height: 34, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   menuBtnTxt: { fontSize: 16, fontWeight: '700' },
   dropdown: {
-    position: 'absolute', right: 0, top: 40, borderRadius: radius.md,
-    borderWidth: 1, overflow: 'hidden', zIndex: 99, minWidth: 120,
+    position: 'absolute', borderRadius: radius.md,
+    borderWidth: 1, overflow: 'hidden', zIndex: 99, minWidth: 160,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12, shadowRadius: 8, elevation: 8,
   },

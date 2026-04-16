@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEatInStore } from '@/store/wheelStore';
 import { getCustomRecipes } from '@/lib/customRecipes';
 import { WHEEL_CUISINE_OPTIONS, EFFORT_OPTIONS, type EffortLevel, type WheelItem, type Recipe } from '@/types';
+import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
@@ -14,6 +15,7 @@ const EFFORT_META: Record<EffortLevel, { emoji: string; sub: string }> = {
 };
 
 export default function EatInFilters() {
+  const { showToast, toast } = useAppAlert();
   const router = useRouter();
   const { colors } = useTheme();
   const { filters, setFilters, setWheelItems, setLoading, isLoading } = useEatInStore();
@@ -36,13 +38,13 @@ export default function EatInFilters() {
       if (filters.cuisines.length) filtered = filtered.filter(r => filters.cuisines.includes(r.cuisine));
       if (filters.efforts.length) filtered = filtered.filter(r => filters.efforts.includes(r.effort));
       if (!filtered.length) {
-        Alert.alert('No recipes found', all.length === 0 ? 'Your recipe book is empty! Go add some first.' : 'No recipes match your filters.');
+        showToast(all.length === 0 ? 'Your recipe book is empty! Go add some first.' : 'No recipes match your filters.', 'info');
         return;
       }
       setWheelItems(filtered.map((r): WheelItem<Recipe> => ({ id: r.id, label: r.name, data: r })));
       router.push('/eat-in/wheel');
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showToast(e.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -50,6 +52,7 @@ export default function EatInFilters() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
           <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>

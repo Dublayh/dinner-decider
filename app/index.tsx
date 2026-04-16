@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, StatusBar, useWindowDimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import GroceryListModal from '@/components/GroceryListModal';
 // Skia only works on native - use null stubs on web
 const SkiaModule = Platform.OS !== 'web' ? require('@shopify/react-native-skia') : null;
 const Canvas = SkiaModule?.Canvas ?? (() => null);
@@ -148,6 +149,7 @@ export default function HomeScreen() {
   const { colors, isDark, toggle } = useTheme();
   const { width } = useWindowDimensions();
   const C = isDark ? DARK : LIGHT;
+  const [showGrocery, setShowGrocery] = useState(false);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -167,6 +169,12 @@ export default function HomeScreen() {
             {getGreeting()} ✦
           </Text>
           <View style={styles.topBtns}>
+            <Pressable
+              onPress={() => setShowGrocery(true)}
+              style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+            >
+              <Text style={{ fontSize: 16 }}>🛒</Text>
+            </Pressable>
             <Pressable
               onPress={() => router.push('/meal-plan')}
               style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
@@ -191,6 +199,10 @@ export default function HomeScreen() {
           <Text style={[styles.heroSubtitle, { color: colors.heroSubtitle }]}>
             The eternal question, finally solved — together.
           </Text>
+          <View style={[styles.pill, { backgroundColor: colors.heroPill, borderColor: colors.heroPillBorder }]}>
+            <View style={[styles.pillDot, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.pillText, { color: colors.heroPillText }]}>Hunger level: critical</Text>
+          </View>
         </View>
 
         {/* Section label */}
@@ -242,6 +254,7 @@ export default function HomeScreen() {
 
         </View>
       </SafeAreaView>
+      <GroceryListModal visible={showGrocery} onClose={() => setShowGrocery(false)} />
     </View>
   );
 }

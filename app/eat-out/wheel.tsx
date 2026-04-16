@@ -16,6 +16,7 @@ import { addCustomRestaurant } from '@/lib/customRestaurants';
 import { searchRestaurants } from '@/lib/places';
 import { getFavoritePlaceIds, addFavoriteRestaurant, removeFavoriteRestaurant } from '@/lib/favoriteRestaurants';
 import type { Restaurant, WheelItem } from '@/types';
+import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
@@ -60,6 +61,7 @@ function ConfettiDot({ angle, color, dist, trigger }: {
 }
 
 export default function EatOutWheel() {
+  const { showToast, toast } = useAppAlert();
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -128,7 +130,7 @@ export default function EatOutWheel() {
         await addFavoriteRestaurant(restaurant);
         setFavoriteIds(prev => new Set(prev).add(restaurant.id));
       }
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     finally { setTogglingId(null); }
   }
 
@@ -160,7 +162,7 @@ export default function EatOutWheel() {
       const saved = await addCustomRestaurant({ name, address: 'Custom entry', distanceMiles: 0, cuisineTypes: [], location: { lat: 0, lng: 0 } });
       addWheelItem({ id: saved.id, label: saved.name, data: saved });
       setQuery(''); setSuggestions([]);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
   }
 
   async function handleRemove(item: WheelItem<Restaurant>) {

@@ -5,12 +5,14 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS, type EffortLevel, type Ingredient, type Recipe } from '@/types';
+import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
 type EditSection = { name: string; ingredients: Ingredient[]; steps: string[] };
 
 export default function AddRecipe() {
+  const { showToast, showConfirm, toast, confirm, dismissConfirm } = useAppAlert();
   const router = useRouter();
   const { colors } = useTheme();
   const [saving, setSaving] = useState(false);
@@ -62,8 +64,8 @@ export default function AddRecipe() {
   const remSecStep = (si: number, ii: number) => setSections(prev => prev.map((s, idx) => idx === si ? { ...s, steps: s.steps.filter((_, jdx) => jdx !== ii) } : s));
 
   async function handleSave() {
-    if (!name.trim()) { Alert.alert('Name required', 'Please enter a recipe name.'); return; }
-    if (!cuisine) { Alert.alert('Cuisine required', 'Please select a cuisine.'); return; }
+    if (!name.trim()) { showToast('Please enter a recipe name.', 'error'); return; }
+    if (!cuisine) { showToast('Please select a cuisine.', 'error'); return; }
     setSaving(true);
     try {
       await addCustomRecipe({
@@ -75,7 +77,7 @@ export default function AddRecipe() {
         sections: useSections ? sections.filter(s => s.name.trim() || s.ingredients.some(i => i.name.trim())).map(s => ({ name: s.name.trim(), ingredients: s.ingredients.filter(i => i.name.trim()).map(i => ({ amount: i.amount.trim(), unit: i.unit.trim(), name: i.name.trim() })), steps: s.steps.filter(st => st.trim()).map((st, idx) => ({ number: idx + 1, step: st.trim() })) })) : undefined,
       });
       router.back();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
   }
 
@@ -84,6 +86,7 @@ export default function AddRecipe() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
           <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>

@@ -14,6 +14,7 @@ import SpinWheel from '@/components/SpinWheelUniversal';
 import { addCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import { setMealPlanEntry } from '@/lib/mealPlan';
 import type { Recipe, WheelItem } from '@/types';
+import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
@@ -53,6 +54,7 @@ function ConfettiDot({ angle, color, dist, trigger }: {
 }
 
 export default function EatInWheel() {
+  const { showToast, toast } = useAppAlert();
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { pendingDate, setPendingDate } = useMealPlanSpinStore();
@@ -136,7 +138,7 @@ export default function EatInWheel() {
       const saved = await addCustomRecipe({ name, cuisine: 'Custom', effort: 'medium', readyInMinutes: 0, servings: 2, ingredients: [], steps: [] });
       addWheelItem({ id: saved.id, label: saved.name, data: saved });
       setQuery('');
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
   }
 
   async function handleRemove(item: WheelItem<Recipe>) {

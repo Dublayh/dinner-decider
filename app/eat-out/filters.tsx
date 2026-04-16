@@ -6,6 +6,7 @@ import { useEatOutStore } from '@/store/wheelStore';
 import { fetchNearbyRestaurants } from '@/lib/places';
 import { getFavoriteRestaurants } from '@/lib/favoriteRestaurants';
 import { CUISINE_OPTIONS, VIBE_OPTIONS, type CuisineOption, type VibeOption, type WheelItem, type Restaurant } from '@/types';
+import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 import * as Location from 'expo-location';
@@ -15,6 +16,7 @@ const VIBE_EMOJI: Record<string, string> = {
 };
 
 export default function EatOutFilters() {
+  const { showToast, toast } = useAppAlert();
   const router = useRouter();
   const { colors } = useTheme();
   const { filters, setFilters, setWheelItems, setLoading, isLoading } = useEatOutStore();
@@ -36,26 +38,26 @@ export default function EatOutFilters() {
       if (favoritesOnly) {
         const restaurants = await getFavoriteRestaurants();
         if (!restaurants.length) {
-          Alert.alert('No favorites yet', 'Star some restaurants on the wheel first!');
+          showToast('Star some restaurants on the wheel first!', 'info');
           return null;
         }
         return restaurants;
       } else {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Location needed', 'Please allow location access to find nearby restaurants.');
+          showToast('Please allow location access to find restaurants.', 'error');
           return null;
         }
         const loc = await Location.getCurrentPositionAsync({});
         const restaurants = await fetchNearbyRestaurants(loc.coords.latitude, loc.coords.longitude, filters);
         if (!restaurants.length) {
-          Alert.alert('No restaurants found', 'Try adjusting your filters or radius.');
+          showToast('No restaurants found. Try adjusting your filters or radius.', 'info');
           return null;
         }
         return restaurants;
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showToast(e.message, 'error');
       return null;
     } finally {
       setLoading(false);
@@ -78,6 +80,7 @@ export default function EatOutFilters() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
           <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
