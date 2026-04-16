@@ -2,30 +2,80 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Pressable, StyleSheet, Modal, Animated,
   TextInput, ScrollView, LayoutAnimation, Platform,
-  UIManager, ActivityIndicator,
+  UIManager, ActivityIndicator, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useAppAlert, AppToast } from '@/components/AppDialog';
+import { parseAmount, formatAmount } from '@/lib/amountUtils';
 import {
   getGroceryItems, addGroceryItem, toggleGroceryItem,
   deleteCheckedItems, clearAllItems,
 } from '@/lib/groceryList';
 import type { GroceryItem } from '@/lib/groceryList';
 
-// Enable LayoutAnimation on Android
 if (Platform.OS === 'android') {
   if (UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
   }
 }
 
+interface CombinedItem {
+  ids: string[];
+  text: string;
+  amount: string;
+  unit: string;
+  checked: boolean;
+  sources: string[];
+}
+
+function normalizeIngredientName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/(?<=[a-z])s\b/, '');
+}
+
+function combineItems(items: GroceryItem[]): CombinedItem[] {
+  const map = new Map<string, CombinedItem>();
+
+  for (const item of items) {
+    const normName = normalizeIngredientName(item.text);
+    const normUnit = (item.unit ?? '').toLowerCase().trim();
+    const key = `${normName}|${normUnit}`;
+
+    if (map.has(key)) {
+      const existing = map.get(key)!;
+      const existingAmt = parseAmount(existing.amount);
+      const newAmt = parseAmount(item.amount ?? '');
+      if (existingAmt !== null && newAmt !== null) {
+        existing.amount = formatAmount(existingAmt + newAmt);
+      }
+      existing.ids.push(item.id);
+      if (item.source !== 'manual' && !existing.sources.includes(item.source)) {
+        existing.sources.push(item.source);
+      }
+      if (!item.checked) existing.checked = false;
+    } else {
+      map.set(key, {
+        ids: [item.id],
+        text: item.text,
+        amount: item.amount ?? '',
+        unit: item.unit ?? '',
+        checked: item.checked,
+        sources: item.source !== 'manual' ? [item.source] : [],
+      });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
+
+const SHEET_HEIGHT = Dimensions.get('window').height * 0.82;
 
 export default function GroceryListModal({ visible, onClose }: Props) {
   const { colors } = useTheme();
@@ -39,14 +89,15 @@ export default function GroceryListModal({ visible, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
 
   const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const sheetY = useRef(new Animated.Value(800)).current;
+  const sheetY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const inputRef = useRef<TextInput>(null);
 
-  const unchecked = items.filter(i => !i.checked);
-  const checked = items.filter(i => i.checked);
-  const sortedItems = [...unchecked, ...checked];
+  const combined = combineItems(items);
+  const sortedCombined = [
+    ...combined.filter(i => !i.checked),
+    ...combined.filter(i => i.checked),
+  ];
 
-  // Animate modal in/out
   useEffect(() => {
     if (visible) {
       setMounted(true);
@@ -58,12 +109,11 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     } else if (mounted) {
       Animated.parallel([
         Animated.timing(overlayOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-        Animated.timing(sheetY, { toValue: 800, duration: 200, useNativeDriver: true }),
+        Animated.timing(sheetY, { toValue: SHEET_HEIGHT, duration: 200, useNativeDriver: true }),
       ]).start(() => setMounted(false));
     }
   }, [visible]);
 
-  // Real-time subscription
   useEffect(() => {
     if (!visible) return;
 
@@ -100,17 +150,19 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     }
   }
 
-  async function handleToggle(item: GroceryItem) {
-    const next = !item.checked;
-    // Optimistic update
+  async function handleToggle(combinedItem: CombinedItem) {
+    const next = !combinedItem.checked;
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setItems(prev => prev.map(i => i.id === item.id ? { ...i, checked: next } : i));
+    setItems(prev => prev.map(i =>
+      combinedItem.ids.includes(i.id) ? { ...i, checked: next } : i
+    ));
     try {
-      await toggleGroceryItem(item.id, next);
+      await Promise.all(combinedItem.ids.map(id => toggleGroceryItem(id, next)));
     } catch (e: any) {
-      // Revert
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, checked: item.checked } : i));
+      setItems(prev => prev.map(i =>
+        combinedItem.ids.includes(i.id) ? { ...i, checked: !next } : i
+      ));
       showToast(e.message, 'error');
     }
   }
@@ -133,7 +185,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
   }
 
   async function handleClearChecked() {
-    if (!checked.length) { showToast('No checked items to clear.', 'info'); return; }
+    if (!items.some(i => i.checked)) { showToast('No checked items to clear.', 'info'); return; }
     try {
       await deleteCheckedItems();
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -160,21 +212,17 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
 
-      {/* Dim overlay */}
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
-      {/* Sheet */}
       <Animated.View
         style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}
         pointerEvents="box-none"
       >
-        <View style={[styles.content, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 16 }]}>
-          {/* Handle */}
+        <View style={[styles.content, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 16, maxHeight: SHEET_HEIGHT }]}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-          {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>Shopping List</Text>
             <View style={styles.headerBtns}>
@@ -193,7 +241,6 @@ export default function GroceryListModal({ visible, onClose }: Props) {
             </View>
           </View>
 
-          {/* Add input */}
           <View style={[styles.addRow, { borderColor: colors.border, backgroundColor: colors.bgMuted }]}>
             <TextInput
               ref={inputRef}
@@ -217,18 +264,17 @@ export default function GroceryListModal({ visible, onClose }: Props) {
             </Pressable>
           </View>
 
-          {/* List */}
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
             {loading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
-            ) : sortedItems.length === 0 ? (
+            ) : sortedCombined.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textMuted }]}>
                 Your shopping list is empty.{'\n'}Add items above or they'll appear here from your meal plan.
               </Text>
             ) : (
-              sortedItems.map(item => (
+              sortedCombined.map(item => (
                 <Pressable
-                  key={item.id}
+                  key={item.ids.join('-')}
                   style={[styles.item, { borderBottomColor: colors.border }]}
                   onPress={() => handleToggle(item)}
                 >
@@ -241,7 +287,10 @@ export default function GroceryListModal({ visible, onClose }: Props) {
                   ]}>
                     {item.checked && <Text style={styles.checkmark}>✓</Text>}
                   </View>
-                  <View style={styles.itemContent}>
+                  <Text style={[styles.itemAmt, { color: colors.textMuted }]}>
+                    {item.amount}{item.unit ? ` ${item.unit}` : ''}
+                  </Text>
+                  <View style={styles.itemRight}>
                     <Text style={[
                       styles.itemName,
                       {
@@ -249,10 +298,12 @@ export default function GroceryListModal({ visible, onClose }: Props) {
                         textDecorationLine: item.checked ? 'line-through' : 'none',
                       },
                     ]}>
-                      {item.amount ? `${item.amount}${item.unit ? ` ${item.unit}` : ''} ` : ''}{item.text}
+                      {item.text}
                     </Text>
-                    {item.source !== 'manual' && (
-                      <Text style={[styles.itemSource, { color: colors.textMuted }]}>{item.source}</Text>
+                    {item.sources.length > 0 && (
+                      <Text style={[styles.itemSources, { color: colors.textMuted }]}>
+                        {item.sources.join(', ')}
+                      </Text>
                     )}
                   </View>
                 </Pressable>
@@ -268,7 +319,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  content: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%' },
+  content: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   title: { fontSize: font.lg, fontWeight: '800' },
@@ -281,10 +332,11 @@ const styles = StyleSheet.create({
   addBtnTxt: { color: '#fff', fontSize: 22, fontWeight: '600', lineHeight: 26 },
   list: { paddingHorizontal: spacing.lg },
   empty: { textAlign: 'center', marginTop: 32, fontSize: font.sm, lineHeight: 22 },
-  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, gap: spacing.md },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  checkmark: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  itemContent: { flex: 1 },
-  itemName: { fontSize: font.sm, fontWeight: '500' },
-  itemSource: { fontSize: font.xs, marginTop: 2 },
+  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, gap: spacing.md },
+  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  checkmark: { color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 16 },
+  itemAmt: { fontSize: font.sm, minWidth: 60 },
+  itemRight: { flex: 1 },
+  itemName: { fontSize: font.sm },
+  itemSources: { fontSize: font.xs, marginTop: 2 },
 });

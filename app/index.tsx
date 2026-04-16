@@ -199,10 +199,6 @@ export default function HomeScreen() {
           <Text style={[styles.heroSubtitle, { color: colors.heroSubtitle }]}>
             The eternal question, finally solved — together.
           </Text>
-          <View style={[styles.pill, { backgroundColor: colors.heroPill, borderColor: colors.heroPillBorder }]}>
-            <View style={[styles.pillDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.pillText, { color: colors.heroPillText }]}>Hunger level: critical</Text>
-          </View>
         </View>
 
         {/* Section label */}
