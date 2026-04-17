@@ -10,6 +10,7 @@ export interface Restaurant {
   cuisineTypes: string[];
   isCustom: boolean;
   location: { lat: number; lng: number };
+  websiteUri?: string;
 }
 
 export type EffortLevel = 'quick' | 'medium' | 'weekend';

@@ -22,6 +22,8 @@ export default function RestaurantMap({ restaurants, userLocation }: Props) {
     lng: r.location.lng,
     name: r.name,
     address: r.address || '',
+    rating: r.rating ?? null,
+    websiteUri: r.websiteUri ?? null,
     mapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.address || r.name)}`,
   }));
 
@@ -35,9 +37,11 @@ export default function RestaurantMap({ restaurants, userLocation }: Props) {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #map { width: 100%; height: 100%; }
-    .popup-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+    .popup-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+    .popup-meta { font-size: 12px; color: #888; margin-bottom: 6px; }
     .popup-addr { font-size: 12px; color: #666; margin-bottom: 8px; }
-    .popup-link { font-size: 13px; color: #C17A3C; font-weight: 600; text-decoration: none; }
+    .popup-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .popup-link { font-size: 12px; color: #C17A3C; font-weight: 600; text-decoration: none; background: #fdf3e7; padding: 4px 10px; border-radius: 20px; border: 1px solid #C17A3C; }
   </style>
 </head>
 <body>
@@ -63,8 +67,12 @@ export default function RestaurantMap({ restaurants, userLocation }: Props) {
       const marker = L.marker([m.lat, m.lng]).addTo(map);
       marker.bindPopup(
         '<div class="popup-name">' + m.name + '</div>' +
+        (m.rating ? '<div class="popup-meta">⭐ ' + m.rating + '</div>' : '') +
         '<div class="popup-addr">' + m.address + '</div>' +
-        '<a class="popup-link" href="' + m.mapsUrl + '" target="_blank">📍 Get Directions</a>'
+        '<div class="popup-btns">' +
+        '<a class="popup-link" href="' + m.mapsUrl + '" target="_blank">📍 Directions</a>' +
+        (m.websiteUri ? '<a class="popup-link" href="' + m.websiteUri + '" target="_blank">🌐 Website</a>' : '') +
+        '</div>'
       );
       bounds.push([m.lat, m.lng]);
     });

@@ -14,7 +14,7 @@ export async function fetchNearbyRestaurants(
   lng: number,
   filters: EatOutFilters,
 ): Promise<Restaurant[]> {
-  const { data, error } = await supabase.functions.invoke<Restaurant[]>(
+  const { data, error } = await supabase.functions.invoke(
     'nearby-restaurants',
     {
       body: {
@@ -28,11 +28,25 @@ export async function fetchNearbyRestaurants(
   );
 
   if (error) throw new Error(`Places fetch failed: ${error.message}`);
-  const results = data ?? [];
+  const results: any[] = data ?? [];
+
+  // Calculate distance client-side and map to Restaurant shape
+  const restaurants: Restaurant[] = results.map(p => ({
+    id: p.id,
+    name: p.name,
+    address: p.address ?? '',
+    distanceMiles: parseFloat(metersToMiles(distanceBetween(lat, lng, p.location?.lat ?? lat, p.location?.lng ?? lng)).toFixed(1)),
+    rating: p.rating ?? undefined,
+    priceLevel: p.priceLevel ?? undefined,
+    cuisineTypes: p.cuisineTypes ?? [],
+    isCustom: false,
+    websiteUri: p.websiteUri ?? undefined,
+    location: p.location ?? { lat, lng },
+  }));
 
   // Deduplicate by name — keep the closest location of each chain
   const seen = new Map<string, Restaurant>();
-  for (const r of results) {
+  for (const r of restaurants) {
     const key = r.name.toLowerCase().trim();
     const existing = seen.get(key);
     if (!existing || r.distanceMiles < existing.distanceMiles) {
