@@ -12,9 +12,20 @@ import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { parseAmount, formatAmount } from '@/lib/amountUtils';
 import {
   getGroceryItems, addGroceryItem, toggleGroceryItem,
-  deleteCheckedItems, clearAllItems,
+  deleteCheckedItems, clearAllItems, addRecipeToGroceryList,
 } from '@/lib/groceryList';
 import type { GroceryItem } from '@/lib/groceryList';
+import { getCustomRecipes } from '@/lib/customRecipes';
+import type { Recipe } from '@/types';
+
+// Count ingredients a recipe would contribute (flat + sections, named only)
+function recipeIngredientCount(r: Recipe): number {
+  const ings = [
+    ...(r.ingredients ?? []),
+    ...(r.sections?.flatMap(s => s.ingredients ?? []) ?? []),
+  ];
+  return ings.filter(i => i.name?.trim()).length;
+}
 
 if (Platform.OS === 'android') {
   if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -87,6 +98,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
   const [newItemText, setNewItemText] = useState('');
   const [adding, setAdding] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const sheetY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
@@ -98,10 +110,18 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     ...combined.filter(i => i.checked),
   ];
 
+  // Recipe search: match the typed text against recipe names
+  const query = newItemText.trim().toLowerCase();
+  const listSources = new Set(items.map(i => i.source));
+  const matchingRecipes = query.length >= 2
+    ? recipes.filter(r => r.name.toLowerCase().includes(query)).slice(0, 5)
+    : [];
+
   useEffect(() => {
     if (visible) {
       setMounted(true);
       load();
+      if (recipes.length === 0) getCustomRecipes().then(setRecipes).catch(() => {});
       Animated.parallel([
         Animated.timing(overlayOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
         Animated.timing(sheetY, { toValue: 0, duration: 240, useNativeDriver: true }),
@@ -184,6 +204,22 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     }
   }
 
+  async function handleAddRecipe(r: Recipe) {
+    try {
+      const n = await addRecipeToGroceryList(r);
+      setNewItemText('');
+      inputRef.current?.focus();
+      // Silent refetch (realtime also updates, but this is immediate and avoids a spinner flash)
+      getGroceryItems().then(setItems).catch(() => {});
+      showToast(
+        n > 0 ? `Added ${n} item${n === 1 ? '' : 's'} from ${r.name}` : 'That recipe has no ingredients.',
+        n > 0 ? 'success' : 'info',
+      );
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  }
+
   async function handleClearChecked() {
     if (!items.some(i => i.checked)) { showToast('No checked items to clear.', 'info'); return; }
     try {
@@ -245,7 +281,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
             <TextInput
               ref={inputRef}
               style={[styles.addInput, { color: colors.textPrimary }, Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}]}
-              placeholder="Add an item..."
+              placeholder="Add an item or search recipes..."
               placeholderTextColor={colors.textMuted}
               value={newItemText}
               onChangeText={setNewItemText}
@@ -264,12 +300,41 @@ export default function GroceryListModal({ visible, onClose }: Props) {
             </Pressable>
           </View>
 
+          {matchingRecipes.length > 0 && (
+            <View style={[styles.recipeResults, { borderColor: colors.border, backgroundColor: colors.bgMuted }]}>
+              <Text style={[styles.recipeResultsLabel, { color: colors.sectionLabel }]}>Recipes</Text>
+              {matchingRecipes.map(r => {
+                const count = recipeIngredientCount(r);
+                const added = listSources.has(r.name);
+                return (
+                  <Pressable
+                    key={r.id}
+                    style={[styles.recipeResultRow, { borderTopColor: colors.border }]}
+                    onPress={() => handleAddRecipe(r)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.recipeResultName, { color: colors.textPrimary }]} numberOfLines={1}>{r.name}</Text>
+                      <Text style={[styles.recipeResultMeta, { color: colors.textMuted }]}>
+                        {r.cuisine} · {count} ingredient{count === 1 ? '' : 's'}
+                      </Text>
+                    </View>
+                    <View style={[styles.recipeResultAction, { backgroundColor: added ? colors.primaryLight : colors.primary }]}>
+                      <Text style={[styles.recipeResultActionTxt, { color: added ? colors.primaryDark : '#fff' }]}>
+                        {added ? '✓ on list' : `+ ${count}`}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
             {loading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
             ) : sortedCombined.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textMuted }]}>
-                Your shopping list is empty.{'\n'}Add items above, or add a recipe's ingredients from the meal plan or a recipe page.
+                Your shopping list is empty.{'\n'}Add an item above, or type a recipe name to add its ingredients.
               </Text>
             ) : (
               sortedCombined.map(item => (
@@ -330,6 +395,13 @@ const styles = StyleSheet.create({
   addInput: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: font.sm },
   addBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   addBtnTxt: { color: '#fff', fontSize: 22, fontWeight: '600', lineHeight: 26 },
+  recipeResults: { marginHorizontal: spacing.lg, marginBottom: spacing.md, borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  recipeResultsLabel: { fontSize: font.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, paddingHorizontal: spacing.md, paddingTop: 8, paddingBottom: 6 },
+  recipeResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 10, paddingHorizontal: spacing.md, borderTopWidth: 1 },
+  recipeResultName: { fontSize: font.sm, fontWeight: '600' },
+  recipeResultMeta: { fontSize: font.xs, marginTop: 2 },
+  recipeResultAction: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full, minWidth: 44, alignItems: 'center' },
+  recipeResultActionTxt: { fontSize: font.xs, fontWeight: '700' },
   list: { paddingHorizontal: spacing.lg },
   empty: { textAlign: 'center', marginTop: 32, fontSize: font.sm, lineHeight: 22 },
   item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, gap: spacing.md },
