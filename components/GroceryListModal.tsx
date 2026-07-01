@@ -269,7 +269,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
               <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
             ) : sortedCombined.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textMuted }]}>
-                Your shopping list is empty.{'\n'}Add items above or they'll appear here from your meal plan.
+                Your shopping list is empty.{'\n'}Add items above, or add a recipe's ingredients from the meal plan or a recipe page.
               </Text>
             ) : (
               sortedCombined.map(item => (

@@ -4,13 +4,16 @@ import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
+export interface ToastAction { label: string; onPress: () => void }
+
 interface ToastProps {
   message: string;
   type: 'error' | 'success' | 'info';
   visible: boolean;
+  action?: ToastAction;
 }
 
-export function AppToast({ message, type, visible }: ToastProps) {
+export function AppToast({ message, type, visible, action }: ToastProps) {
   const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
@@ -27,11 +30,18 @@ export function AppToast({ message, type, visible }: ToastProps) {
   const bg = type === 'error' ? colors.danger : type === 'success' ? colors.primary : colors.textSecondary;
 
   return (
+    // box-none so the toast body still lets touches pass through (as before),
+    // but the action button can receive taps when present.
     <Animated.View
-      pointerEvents="none"
+      pointerEvents={action ? 'box-none' : 'none'}
       style={[styles.toastBox, { backgroundColor: bg, opacity, transform: [{ translateY }] }]}
     >
-      <Text style={styles.toastTxt}>{message}</Text>
+      <Text style={[styles.toastTxt, action ? styles.toastTxtWithAction : null]}>{message}</Text>
+      {action && (
+        <Pressable onPress={action.onPress} hitSlop={10} style={styles.toastAction}>
+          <Text style={styles.toastActionTxt}>{action.label}</Text>
+        </Pressable>
+      )}
     </Animated.View>
   );
 }
@@ -77,7 +87,7 @@ export function AppConfirmDialog({ visible, title, message, confirmLabel = 'Conf
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
-interface ToastState { msg: string; type: 'error' | 'success' | 'info' }
+interface ToastState { msg: string; type: 'error' | 'success' | 'info'; action?: ToastAction }
 interface ConfirmState { title: string; message?: string; confirmLabel?: string; destructive?: boolean; onConfirm: () => void }
 
 export function useAppAlert() {
@@ -85,10 +95,15 @@ export function useAppAlert() {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const toastTimer = useRef<any>(null);
 
-  function showToast(msg: string, type: 'error' | 'success' | 'info' = 'info') {
+  function showToast(msg: string, type: 'error' | 'success' | 'info' = 'info', action?: ToastAction) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ msg, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3500);
+    // Wrap the action so tapping it also dismisses the toast immediately.
+    const wrapped: ToastAction | undefined = action
+      ? { label: action.label, onPress: () => { setToast(null); action.onPress(); } }
+      : undefined;
+    setToast({ msg, type, action: wrapped });
+    // Give a little longer to react when there's an undo affordance.
+    toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 3500);
   }
 
   function showConfirm(title: string, message?: string, onConfirmCb?: () => void, opts?: { label?: string; destructive?: boolean }) {
@@ -112,8 +127,11 @@ export function useAppAlert() {
 }
 
 const styles = StyleSheet.create({
-  toastBox: { position: 'absolute', bottom: 48, left: 24, right: 24, borderRadius: radius.lg, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8, zIndex: 9999 },
+  toastBox: { position: 'absolute', bottom: 48, left: 24, right: 24, borderRadius: radius.lg, paddingVertical: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8, zIndex: 9999 },
   toastTxt: { color: '#fff', fontSize: font.sm, fontWeight: '600', textAlign: 'center' },
+  toastTxtWithAction: { flexShrink: 1, textAlign: 'left' },
+  toastAction: { marginLeft: 14, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.25)' },
+  toastActionTxt: { color: '#fff', fontSize: font.sm, fontWeight: '800' },
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 32 },
   dialogBox: { width: '100%', maxWidth: 340, borderRadius: radius.xl, borderWidth: 1, padding: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 12 },
   dialogTitle: { fontSize: font.lg, fontWeight: '700', marginBottom: spacing.sm, textAlign: 'center' },

@@ -10,7 +10,7 @@ import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
 import { radius, spacing, font } from '@/constants/theme';
 import { getMealPlanForRange, setMealPlanEntry, clearMealPlanEntry } from '@/lib/mealPlan';
-import { addGroceryItems, getGroceryItems } from '@/lib/groceryList';
+import { addRecipeToGroceryList, deleteGroceryItemsBySource, getGroceryItems } from '@/lib/groceryList';
 import GroceryListModal from '@/components/GroceryListModal';
 import { getCustomRecipes } from '@/lib/customRecipes';
 import { useMealPlanSpinStore } from '@/store/wheelStore';
@@ -114,31 +114,59 @@ export default function MealPlanScreen() {
   const [saving, setSaving] = useState(false);
   const [showShoppingList, setShowShoppingList] = useState(false);
   const [recipeSearch, setRecipeSearch] = useState('');
+  // Recipe names currently on the shopping list → drives the "already added" dot
+  const [listSources, setListSources] = useState<Set<string>>(new Set());
 
-  async function openShoppingList() {
-    // Push this week's recipe ingredients into the shared grocery list (skip existing)
-    if (weekRecipes.length > 0) {
-      try {
-        const existing = await getGroceryItems();
-        const existingKeys = new Set(existing.map(i => `${i.text}|${i.source}`));
-        const toAdd: { text: string; amount?: string; unit?: string; source: string }[] = [];
-        for (const r of weekRecipes) {
-          const ings = [
-            ...(r.ingredients ?? []),
-            ...(r.sections?.flatMap((s: any) => s.ingredients ?? []) ?? []),
-          ];
-          for (const ing of ings) {
-            if (!ing.name?.trim()) continue;
-            const key = `${ing.name}|${r.name}`;
-            if (!existingKeys.has(key)) {
-              toAdd.push({ text: ing.name, amount: ing.amount, unit: ing.unit, source: r.name });
-            }
-          }
-        }
-        if (toAdd.length > 0) await addGroceryItems(toAdd);
-      } catch {}
-    }
-    setShowShoppingList(true);
+  async function loadListSources() {
+    try {
+      const items = await getGroceryItems();
+      setListSources(new Set(items.map(i => i.source)));
+    } catch {}
+  }
+
+  // Low-level ops (DB + local dot state), no toast — used by the toggle and its undo
+  async function addRecipeItems(r: Recipe): Promise<number> {
+    const n = await addRecipeToGroceryList(r);
+    setListSources(prev => new Set(prev).add(r.name));
+    return n;
+  }
+  async function removeRecipeItems(source: string): Promise<void> {
+    await deleteGroceryItemsBySource(source);
+    setListSources(prev => { const n = new Set(prev); n.delete(source); return n; });
+  }
+
+  // Tapping the card 🛒 toggles the recipe on/off the shopping list
+  async function toggleEntryOnList(entry: MealPlanEntry) {
+    if (entry.type !== 'recipe' || !entry.recipe_id) return;
+    setSaving(true);
+    try {
+      const all = await ensureRecipesLoaded();
+      const r = all.find(x => x.id === entry.recipe_id);
+      if (!r) { showToast('Recipe not found.', 'error'); return; }
+
+      if (listSources.has(r.name)) {
+        await removeRecipeItems(r.name);
+        showToast('Removed from shopping list', 'info', { label: 'Undo', onPress: () => addBack(r) });
+      } else {
+        const n = await addRecipeItems(r);
+        if (n === 0) { showToast('No ingredients to add.', 'info'); return; }
+        showToast(
+          `Added ${n} item${n === 1 ? '' : 's'} to shopping list`,
+          'success',
+          { label: 'Undo', onPress: () => removeBack(r.name) },
+        );
+      }
+    } catch (e: any) { showToast(e.message, 'error'); }
+    finally { setSaving(false); }
+  }
+
+  async function addBack(r: Recipe) {
+    try { const n = await addRecipeItems(r); showToast(`Added ${n} item${n === 1 ? '' : 's'} to shopping list`, 'success'); }
+    catch (e: any) { showToast(e.message, 'error'); }
+  }
+  async function removeBack(source: string) {
+    try { await removeRecipeItems(source); showToast('Removed from shopping list', 'info'); }
+    catch (e: any) { showToast(e.message, 'error'); }
   }
 
   const weekDays = getWeekDays(weekStart);
@@ -164,13 +192,17 @@ export default function MealPlanScreen() {
   }, [rangeStart, rangeEnd]);
 
   useEffect(() => { loadPlan(); }, [loadPlan]);
-  useFocusEffect(useCallback(() => { loadPlan(); }, [loadPlan]));
+  useFocusEffect(useCallback(() => { loadPlan(); loadListSources(); }, [loadPlan]));
 
-  async function ensureRecipesLoaded() {
-    if (recipesLoaded) return;
+  // Preload recipes so the per-day "add to list" button is instant
+  useEffect(() => { ensureRecipesLoaded(); }, []);
+
+  async function ensureRecipesLoaded(): Promise<Recipe[]> {
+    if (recipesLoaded) return recipes;
     const all = await getCustomRecipes();
     setRecipes(all);
     setRecipesLoaded(true);
+    return all;
   }
 
   function openDayPicker(dateStr: string) {
@@ -214,11 +246,6 @@ export default function MealPlanScreen() {
     (!recipeSearch.trim() || r.name.toLowerCase().includes(recipeSearch.toLowerCase()))
   );
 
-  // Shopping list
-  const weekEntries = weekDays.map(d => plan[toDateStr(d)]).filter(Boolean);
-  const weekRecipeIds = new Set(weekEntries.filter(e => e?.type === 'recipe' && e.recipe_id).map(e => e.recipe_id));
-  const weekRecipes = recipes.filter(r => weekRecipeIds.has(r.id));
-
   const selectedEntry = selectedDate ? plan[selectedDate] : null;
   const selectedDayLabel = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -242,7 +269,7 @@ export default function MealPlanScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} action={toast?.action} />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
 
         <View style={styles.topBar}>
@@ -251,7 +278,7 @@ export default function MealPlanScreen() {
           </Pressable>
           <Text style={[styles.heading, { color: colors.textPrimary }]}>Meal Plan</Text>
           <Pressable
-            onPress={() => openShoppingList()}
+            onPress={() => setShowShoppingList(true)}
             style={[styles.iconBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
           >
             <Text style={{ fontSize: 16 }}>🛒</Text>
@@ -292,6 +319,23 @@ export default function MealPlanScreen() {
                         {entry?.type === 'eat_out' && <View style={styles.weekEntryRow}><Text style={styles.weekEntryEmoji}>🍴</Text><Text style={[styles.weekEntryName, { color: colors.textSecondary }]}>Eating Out</Text></View>}
                         {entry?.type === 'recipe' && <View style={styles.weekEntryRow}><Text style={styles.weekEntryEmoji}>🍽️</Text><Text style={[styles.weekEntryName, { color: colors.textPrimary }]} numberOfLines={1}>{entry.recipe_name}</Text></View>}
                       </View>
+                      {entry?.type === 'recipe' && (() => {
+                        const added = !!entry.recipe_name && listSources.has(entry.recipe_name);
+                        return (
+                          <Pressable
+                            onPress={(e) => { (e as any)?.stopPropagation?.(); toggleEntryOnList(entry); }}
+                            disabled={saving}
+                            hitSlop={8}
+                            accessibilityLabel={added ? 'Remove ingredients from shopping list' : 'Add ingredients to shopping list'}
+                            style={[styles.weekAddBtn, added
+                              ? { backgroundColor: colors.primaryLight, borderColor: colors.primary }
+                              : { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+                          >
+                            <Text style={{ fontSize: 15 }}>🛒</Text>
+                            {added && <View style={[styles.listDot, { backgroundColor: colors.primary, borderColor: colors.bgCard }]} />}
+                          </Pressable>
+                        );
+                      })()}
                       <Text style={[styles.weekChevron, { color: colors.textMuted }]}>›</Text>
                     </Pressable>
                   );
@@ -379,7 +423,7 @@ export default function MealPlanScreen() {
         </View>
       </BottomSheetModal>
 
-      <GroceryListModal visible={showShoppingList} onClose={() => setShowShoppingList(false)} />
+      <GroceryListModal visible={showShoppingList} onClose={() => { setShowShoppingList(false); loadListSources(); }} />
     </View>
   );
 }
@@ -406,6 +450,8 @@ const styles = StyleSheet.create({
   weekEntryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   weekEntryEmoji: { fontSize: 18 },
   weekEntryName: { fontSize: font.sm, fontWeight: '500', flex: 1 },
+  weekAddBtn: { width: 32, height: 32, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
+  listDot: { position: 'absolute', top: -1, right: -1, width: 10, height: 10, borderRadius: 5, borderWidth: 1.5 },
   weekChevron: { fontSize: 22 },
   monthHeader: { flexDirection: 'row', paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
   monthHeaderDay: { flex: 1, textAlign: 'center', fontSize: font.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },

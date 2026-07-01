@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import KeyboardScrollView from '@/components/KeyboardScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCustomRecipeById, updateCustomRecipe, deleteCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
+import { addRecipeToGroceryList, deleteGroceryItemsBySource, getGroceryItems } from '@/lib/groceryList';
 import { supabase } from '@/lib/supabase';
 import type { Recipe, Ingredient, EffortLevel } from '@/types';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
@@ -101,6 +102,7 @@ export default function RecipeDetail() {
   const [sectionSearchResults, setSectionSearchResults] = useState<Record<number, Recipe[]>>({});
   const [allImportable, setAllImportable] = useState<Recipe[]>([]);
   const [importableLoaded, setImportableLoaded] = useState(false);
+  const [onList, setOnList] = useState(false); // recipe's ingredients currently on the shopping list
 
   async function ensureImportableLoaded() {
     if (importableLoaded) return;
@@ -131,6 +133,7 @@ export default function RecipeDetail() {
         setEditServings(e.servings); setEditMinutes(e.readyInMinutes);
         setEditIngredients(e.ingredients); setEditSteps(e.steps);
         setEditSections(e.sections); setUseSections(e.useSections);
+        getGroceryItems().then(items => setOnList(items.some(i => i.source === r.name))).catch(() => {});
       }
     }).finally(() => setLoading(false));
   }, [id]);
@@ -206,6 +209,28 @@ export default function RecipeDetail() {
     }, { label: 'Delete', destructive: true });
   }
 
+  async function handleAddToList() {
+    if (!recipe) return;
+    try {
+      const n = await addRecipeToGroceryList(recipe, scale);
+      if (n === 0) { showToast('No ingredients to add.', 'info'); return; }
+      setOnList(true);
+      showToast(
+        `Added ${n} item${n === 1 ? '' : 's'}${scale > 1 ? ` (${scale}x)` : ''} to shopping list`,
+        'success',
+        { label: 'Undo', onPress: () => undoAddToList(recipe.name) },
+      );
+    } catch (e: any) { showToast(e.message, 'error'); }
+  }
+
+  async function undoAddToList(source: string) {
+    try {
+      await deleteGroceryItemsBySource(source);
+      setOnList(false);
+      showToast('Removed from shopping list', 'info');
+    } catch (e: any) { showToast(e.message, 'error'); }
+  }
+
   async function handleShare() {
     if (!recipe) return;
     const EFFORT: Record<string, string> = { quick: '⚡ Quick', medium: '👨‍🍳 Medium', weekend: '🌟 Weekend' };
@@ -252,7 +277,7 @@ export default function RecipeDetail() {
 
   if (!recipe) return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} action={toast?.action} />
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
       <Text style={[styles.error, { color: colors.textMuted }]}>Recipe not found.</Text>
@@ -263,12 +288,16 @@ export default function RecipeDetail() {
     const hasSections = (recipe.sections ?? []).length > 0;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} action={toast?.action} />
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
         <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
           <View style={styles.topRow}>
             <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
             <View style={styles.topActions}>
+              <Pressable onPress={handleAddToList} style={[styles.shareBtn, { backgroundColor: colors.bgMuted, borderColor: colors.border }]}>
+                <Text style={{ fontSize: 16 }}>🛒</Text>
+                {onList && <View style={[styles.listDot, { backgroundColor: colors.primary, borderColor: colors.bg }]} />}
+              </Pressable>
               <Pressable onPress={handleShare} style={[styles.shareBtn, { backgroundColor: colors.bgMuted, borderColor: colors.border }]}>
                 <Text style={{ fontSize: 16 }}>↑</Text>
               </Pressable>
@@ -375,7 +404,7 @@ export default function RecipeDetail() {
   // EDIT MODE
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+      <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} action={toast?.action} />
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <View style={styles.topRow}>
@@ -530,6 +559,7 @@ const styles = StyleSheet.create({
   backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
   topActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   shareBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  listDot: { position: 'absolute', top: -1, right: -1, width: 11, height: 11, borderRadius: 6, borderWidth: 1.5 },
   editBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
   editBtnTxt: { fontWeight: '600', fontSize: font.sm },
   deleteActionBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
