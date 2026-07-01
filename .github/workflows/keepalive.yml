@@ -1,0 +1,35 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # Run every 3 days at 12:00 UTC (well within Supabase's 7-day inactivity limit)
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase to keep project active
+        env:
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "Pinging Supabase at $SUPABASE_URL"
+          response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/grocery_list?select=id&limit=1")
+
+          http_code=$(echo "$response" | grep "HTTP_STATUS" | cut -d: -f2)
+          body=$(echo "$response" | sed '/HTTP_STATUS/d')
+
+          echo "Response: $body"
+          echo "Status: $http_code"
+
+          if [ "$http_code" -ne 200 ]; then
+            echo "Ping failed with status $http_code"
+            exit 1
+          fi
+
+          echo "Supabase ping successful"
