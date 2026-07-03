@@ -122,8 +122,6 @@ export default function HomeScreen() {
             onPress={() => router.push('/recipes')}
           />
         </View>
-
-        <Text style={[styles.footer, { color: colors.textMuted }]}>· BON APPÉTIT ·</Text>
       </SafeAreaView>
       <GroceryListModal visible={showGrocery} onClose={() => setShowGrocery(false)} />
     </View>
@@ -142,13 +140,13 @@ const styles = StyleSheet.create({
   ruleThick: { height: 2 },
   ruleThin: { height: 1, marginTop: 3 },
 
-  hero: { paddingTop: spacing.xl, paddingBottom: spacing.md },
+  hero: { paddingTop: spacing.lg, paddingBottom: spacing.md },
   heroKicker: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 4, marginBottom: spacing.sm },
   heroTitle: { fontFamily: type.serifBlack, fontSize: 54, lineHeight: 60 },
   heroTitleAccent: { fontFamily: type.serifBlackItalic },
   heroSubtitle: { marginTop: spacing.sm, fontFamily: type.serifItalic, fontSize: font.md, lineHeight: 22, maxWidth: 260 },
 
-  sectionRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', gap: spacing.md , paddingBottom: spacing.md},
+  sectionRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', gap: spacing.md},
   sectionRule: { flex: 1, height: 1 },
   sectionLabel: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2.5 },
 
