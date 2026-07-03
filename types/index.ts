@@ -13,7 +13,7 @@ export interface Restaurant {
   websiteUri?: string;
 }
 
-export type EffortLevel = 'quick' | 'medium' | 'weekend';
+export type EffortLevel = 'quick' | 'medium' | 'long' | 'weekend';
 
 export interface Ingredient {
   amount: string;
@@ -64,8 +64,14 @@ export const VIBE_OPTIONS = [
 export const EFFORT_OPTIONS: { label: string; value: EffortLevel }[] = [
   { label: 'Quick (< 30 min)', value: 'quick' },
   { label: 'Medium (30-60 min)', value: 'medium' },
+  { label: 'Long (1-3 hrs)', value: 'long' },
   { label: 'Weekend project', value: 'weekend' },
 ];
+
+// Short display names for compact meta rows
+export const EFFORT_SHORT: Record<EffortLevel, string> = {
+  quick: 'Quick', medium: 'Medium', long: 'Long', weekend: 'Weekend',
+};
 
 export type CuisineOption = typeof CUISINE_OPTIONS[number];
 export type VibeOption = typeof VIBE_OPTIONS[number];

@@ -2,12 +2,31 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View, Text, Pressable, Platform } from 'react-native';
 import React from 'react';
+import { useFonts } from 'expo-font';
 import { ThemeProvider } from '@/context/ThemeContext';
 
-// Remove browser focus outlines on web
+// Deep requires (not the package barrel) so only the weights we actually use
+// are bundled into the web export — the barrel pulls in all ~36 TTFs.
+const FONTS = {
+  Fraunces_400Regular: require('@expo-google-fonts/fraunces/400Regular/Fraunces_400Regular.ttf'),
+  Fraunces_400Regular_Italic: require('@expo-google-fonts/fraunces/400Regular_Italic/Fraunces_400Regular_Italic.ttf'),
+  Fraunces_600SemiBold: require('@expo-google-fonts/fraunces/600SemiBold/Fraunces_600SemiBold.ttf'),
+  Fraunces_600SemiBold_Italic: require('@expo-google-fonts/fraunces/600SemiBold_Italic/Fraunces_600SemiBold_Italic.ttf'),
+  Fraunces_700Bold: require('@expo-google-fonts/fraunces/700Bold/Fraunces_700Bold.ttf'),
+  Fraunces_900Black: require('@expo-google-fonts/fraunces/900Black/Fraunces_900Black.ttf'),
+  Fraunces_900Black_Italic: require('@expo-google-fonts/fraunces/900Black_Italic/Fraunces_900Black_Italic.ttf'),
+  SpaceMono_400Regular: require('@expo-google-fonts/space-mono/400Regular/SpaceMono_400Regular.ttf'),
+  SpaceMono_700Bold: require('@expo-google-fonts/space-mono/700Bold/SpaceMono_700Bold.ttf'),
+};
+
+// Remove browser focus outlines on web + selection colour to match the ink
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
-  style.textContent = 'input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }';
+  style.textContent = `
+    input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }
+    ::selection { background: #BC5B27; color: #F9F2E2; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  `;
   document.head.appendChild(style);
 }
 
@@ -44,6 +63,13 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(FONTS);
+
+  // Hold the (blank) frame until type is ready; if loading fails, ship system fonts.
+  if (!fontsLoaded && !fontError) {
+    return <View style={[styles.root, { backgroundColor: '#F4ECDD' }]} />;
+  }
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <ErrorBoundary>

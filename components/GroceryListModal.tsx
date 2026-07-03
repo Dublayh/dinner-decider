@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Pressable, StyleSheet, Modal, Animated,
   TextInput, ScrollView, LayoutAnimation, Platform,
-  UIManager, ActivityIndicator, Dimensions,
+  UIManager, ActivityIndicator, PanResponder, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { parseAmount, formatAmount } from '@/lib/amountUtils';
@@ -86,12 +86,28 @@ interface Props {
   onClose: () => void;
 }
 
-const SHEET_HEIGHT = Dimensions.get('window').height * 0.82;
+// Receipt perforation rule — text-based so it renders identically everywhere
+function DashRule({ color, style }: { color: string; style?: any }) {
+  return (
+    <Text
+      numberOfLines={1}
+      ellipsizeMode="clip"
+      style={[{ fontFamily: type.mono, fontSize: 10, lineHeight: 12, color, overflow: 'hidden' }, style]}
+    >
+      {'– '.repeat(120)}
+    </Text>
+  );
+}
 
 export default function GroceryListModal({ visible, onClose }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: winHeight } = useWindowDimensions();
   const { showToast, toast } = useAppAlert();
+
+  // Cap the sheet so the handle always stays on screen, whatever the viewport
+  // is doing (keyboard open, PWA chrome, rotation).
+  const sheetMax = winHeight - insets.top - 48;
 
   const [items, setItems] = useState<GroceryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,8 +117,35 @@ export default function GroceryListModal({ visible, onClose }: Props) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const sheetY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const sheetY = useRef(new Animated.Value(winHeight)).current;
   const inputRef = useRef<TextInput>(null);
+
+  // Latest values for the PanResponder (created once, closes over refs)
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const winHeightRef = useRef(winHeight);
+  winHeightRef.current = winHeight;
+
+  // Drag the handle to collapse the sheet
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) sheetY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 110 || g.vy > 0.8) {
+          onCloseRef.current();
+        } else {
+          Animated.spring(sheetY, { toValue: 0, bounciness: 4, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(sheetY, { toValue: 0, bounciness: 4, useNativeDriver: true }).start();
+      },
+    })
+  ).current;
 
   const combined = combineItems(items);
   const sortedCombined = [
@@ -129,7 +172,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     } else if (mounted) {
       Animated.parallel([
         Animated.timing(overlayOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-        Animated.timing(sheetY, { toValue: SHEET_HEIGHT, duration: 200, useNativeDriver: true }),
+        Animated.timing(sheetY, { toValue: winHeightRef.current, duration: 200, useNativeDriver: true }),
       ]).start(() => setMounted(false));
     }
   }, [visible]);
@@ -256,32 +299,49 @@ export default function GroceryListModal({ visible, onClose }: Props) {
         style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}
         pointerEvents="box-none"
       >
-        <View style={[styles.content, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 16, maxHeight: SHEET_HEIGHT }]}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+        <View style={[styles.content, { backgroundColor: colors.bgCard, borderColor: colors.ink, paddingBottom: insets.bottom + 16, maxHeight: sheetMax }]}>
+          {/* Drag zone: handle + masthead collapse the sheet when pulled down */}
+          <View {...panResponder.panHandlers}>
+            <View style={[styles.handle, { backgroundColor: colors.ink }]} />
 
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>Shopping List</Text>
-            <View style={styles.headerBtns}>
-              <Pressable
-                style={[styles.clearBtn, { backgroundColor: colors.bgMuted, borderColor: colors.border }]}
-                onPress={handleClearChecked}
-              >
-                <Text style={[styles.clearBtnTxt, { color: colors.textSecondary }]}>Clear checked</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.clearBtn, { backgroundColor: colors.dangerLight, borderColor: colors.danger }]}
-                onPress={handleClearAll}
-              >
-                <Text style={[styles.clearBtnTxt, { color: colors.danger }]}>Clear all</Text>
-              </Pressable>
+            {/* Receipt masthead */}
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>SHOPPING LIST</Text>
+              <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                ITEMS — {sortedCombined.length}
+              </Text>
             </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={8}
+              accessibilityLabel="Close shopping list"
+              style={[styles.closeBtn, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}
+            >
+              <Text style={{ color: colors.textPrimary, fontSize: 14, lineHeight: 17 }}>✕</Text>
+            </Pressable>
+          </View>
+          <DashRule color={colors.borderStrong} style={{ marginHorizontal: spacing.lg }} />
+
+          <View style={styles.headerBtns}>
+            <Pressable
+              style={[styles.clearBtn, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}
+              onPress={handleClearChecked}
+            >
+              <Text style={[styles.clearBtnTxt, { color: colors.textPrimary }]}>CLEAR CHECKED</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.clearBtn, { borderColor: colors.danger, backgroundColor: colors.bgCard }]}
+              onPress={handleClearAll}
+            >
+              <Text style={[styles.clearBtnTxt, { color: colors.danger }]}>CLEAR ALL</Text>
+            </Pressable>
           </View>
 
-          <View style={[styles.addRow, { borderColor: colors.border, backgroundColor: colors.bgMuted }]}>
+          <View style={[styles.addRow, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}>
             <TextInput
               ref={inputRef}
               style={[styles.addInput, { color: colors.textPrimary }, Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}]}
-              placeholder="Add an item or search recipes..."
+              placeholder="Add an item or search recipes…"
               placeholderTextColor={colors.textMuted}
               value={newItemText}
               onChangeText={setNewItemText}
@@ -289,38 +349,41 @@ export default function GroceryListModal({ visible, onClose }: Props) {
               returnKeyType="done"
             />
             <Pressable
-              style={[styles.addBtn, { backgroundColor: colors.primary, opacity: adding ? 0.6 : 1 }]}
+              style={[styles.addBtn, { backgroundColor: colors.ink, opacity: adding ? 0.6 : 1 }]}
               onPress={handleAdd}
               disabled={adding}
             >
               {adding
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.addBtnTxt}>+</Text>
+                ? <ActivityIndicator color={colors.stampText} size="small" />
+                : <Text style={[styles.addBtnTxt, { color: colors.stampText }]}>+</Text>
               }
             </Pressable>
           </View>
 
           {matchingRecipes.length > 0 && (
-            <View style={[styles.recipeResults, { borderColor: colors.border, backgroundColor: colors.bgMuted }]}>
-              <Text style={[styles.recipeResultsLabel, { color: colors.sectionLabel }]}>Recipes</Text>
+            <View style={[styles.recipeResults, { borderColor: colors.ink, backgroundColor: colors.bgMuted }]}>
+              <Text style={[styles.recipeResultsLabel, { color: colors.sectionLabel }]}>FROM THE RECIPE BOOK</Text>
               {matchingRecipes.map(r => {
                 const count = recipeIngredientCount(r);
                 const added = listSources.has(r.name);
                 return (
                   <Pressable
                     key={r.id}
-                    style={[styles.recipeResultRow, { borderTopColor: colors.border }]}
+                    style={[styles.recipeResultRow, { borderTopColor: colors.line }]}
                     onPress={() => handleAddRecipe(r)}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.recipeResultName, { color: colors.textPrimary }]} numberOfLines={1}>{r.name}</Text>
                       <Text style={[styles.recipeResultMeta, { color: colors.textMuted }]}>
-                        {r.cuisine} · {count} ingredient{count === 1 ? '' : 's'}
+                        {r.cuisine.toUpperCase()} · {count} INGREDIENT{count === 1 ? '' : 'S'}
                       </Text>
                     </View>
-                    <View style={[styles.recipeResultAction, { backgroundColor: added ? colors.primaryLight : colors.primary }]}>
-                      <Text style={[styles.recipeResultActionTxt, { color: added ? colors.primaryDark : '#fff' }]}>
-                        {added ? '✓ on list' : `+ ${count}`}
+                    <View style={[styles.recipeResultAction, added
+                      ? { backgroundColor: 'transparent', borderColor: colors.borderStrong }
+                      : { backgroundColor: colors.ink, borderColor: colors.ink }]}
+                    >
+                      <Text style={[styles.recipeResultActionTxt, { color: added ? colors.textMuted : colors.stampText }]}>
+                        {added ? '✓ ON LIST' : `+ ${count}`}
                       </Text>
                     </View>
                   </Pressable>
@@ -334,45 +397,49 @@ export default function GroceryListModal({ visible, onClose }: Props) {
               <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
             ) : sortedCombined.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textMuted }]}>
-                Your shopping list is empty.{'\n'}Add an item above, or type a recipe name to add its ingredients.
+                Nothing on the list.{'\n'}Add an item above, or type a recipe name to ring up its ingredients.
               </Text>
             ) : (
-              sortedCombined.map(item => (
-                <Pressable
-                  key={item.ids.join('-')}
-                  style={[styles.item, { borderBottomColor: colors.border }]}
-                  onPress={() => handleToggle(item)}
-                >
-                  <View style={[
-                    styles.checkbox,
-                    {
-                      borderColor: item.checked ? colors.primary : colors.border,
-                      backgroundColor: item.checked ? colors.primary : 'transparent',
-                    },
-                  ]}>
-                    {item.checked && <Text style={styles.checkmark}>✓</Text>}
-                  </View>
-                  <Text style={[styles.itemAmt, { color: colors.textMuted }]}>
-                    {item.amount}{item.unit ? ` ${item.unit}` : ''}
-                  </Text>
-                  <View style={styles.itemRight}>
-                    <Text style={[
-                      styles.itemName,
+              <>
+                {sortedCombined.map(item => (
+                  <Pressable
+                    key={item.ids.join('-')}
+                    style={[styles.item, { borderBottomColor: colors.line }]}
+                    onPress={() => handleToggle(item)}
+                  >
+                    <View style={[
+                      styles.checkbox,
                       {
-                        color: item.checked ? colors.textMuted : colors.textPrimary,
-                        textDecorationLine: item.checked ? 'line-through' : 'none',
+                        borderColor: colors.ink,
+                        backgroundColor: item.checked ? colors.ink : 'transparent',
                       },
                     ]}>
-                      {item.text}
-                    </Text>
-                    {item.sources.length > 0 && (
-                      <Text style={[styles.itemSources, { color: colors.textMuted }]}>
-                        {item.sources.join(', ')}
+                      {item.checked && <Text style={[styles.checkmark, { color: colors.stampText }]}>✓</Text>}
+                    </View>
+                    <View style={styles.itemMain}>
+                      <Text style={[
+                        styles.itemName,
+                        {
+                          color: item.checked ? colors.textMuted : colors.textPrimary,
+                          textDecorationLine: item.checked ? 'line-through' : 'none',
+                        },
+                      ]}>
+                        {item.text}
                       </Text>
-                    )}
-                  </View>
-                </Pressable>
-              ))
+                      {item.sources.length > 0 && (
+                        <Text style={[styles.itemSources, { color: colors.textMuted }]} numberOfLines={1}>
+                          {item.sources.join(' · ').toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.itemAmt, { color: item.checked ? colors.textMuted : colors.textSecondary }]}>
+                      {item.amount}{item.unit ? ` ${item.unit}` : ''}
+                    </Text>
+                  </Pressable>
+                ))}
+                <DashRule color={colors.borderStrong} style={{ marginTop: spacing.md }} />
+                <Text style={[styles.receiptFooter, { color: colors.textMuted }]}>· THANK YOU · COME AGAIN ·</Text>
+              </>
             )}
           </ScrollView>
         </View>
@@ -382,33 +449,36 @@ export default function GroceryListModal({ visible, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20,12,4,0.55)' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  content: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  title: { fontSize: font.lg, fontWeight: '800' },
-  headerBtns: { flexDirection: 'row', gap: spacing.sm },
-  clearBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1 },
-  clearBtnTxt: { fontSize: font.xs, fontWeight: '600' },
-  addRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.lg, marginBottom: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, overflow: 'hidden' },
-  addInput: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: 11, fontSize: font.sm },
+  content: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderTopWidth: 2, borderLeftWidth: 2, borderRightWidth: 2, overflow: 'hidden' },
+  handle: { width: 44, height: 3, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  header: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  closeBtn: { position: 'absolute', top: 12, right: spacing.md, width: 30, height: 30, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: type.monoBold, fontSize: 16, letterSpacing: 4 },
+  subtitle: { fontFamily: type.mono, fontSize: 10, letterSpacing: 2, marginTop: 4 },
+  headerBtns: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  clearBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1.5 },
+  clearBtnTxt: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1.5 },
+  addRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.lg, marginBottom: spacing.md, borderRadius: radius.md, borderWidth: 1.5, overflow: 'hidden' },
+  addInput: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: 11, fontFamily: type.mono, fontSize: 13 },
   addBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  addBtnTxt: { color: '#fff', fontSize: 22, fontWeight: '600', lineHeight: 26 },
-  recipeResults: { marginHorizontal: spacing.lg, marginBottom: spacing.md, borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
-  recipeResultsLabel: { fontSize: font.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, paddingHorizontal: spacing.md, paddingTop: 8, paddingBottom: 6 },
+  addBtnTxt: { fontSize: 22, lineHeight: 26, fontFamily: type.mono },
+  recipeResults: { marginHorizontal: spacing.lg, marginBottom: spacing.md, borderWidth: 1.5, borderRadius: radius.md, overflow: 'hidden' },
+  recipeResultsLabel: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 2, paddingHorizontal: spacing.md, paddingTop: 9, paddingBottom: 7 },
   recipeResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 10, paddingHorizontal: spacing.md, borderTopWidth: 1 },
-  recipeResultName: { fontSize: font.sm, fontWeight: '600' },
-  recipeResultMeta: { fontSize: font.xs, marginTop: 2 },
-  recipeResultAction: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full, minWidth: 44, alignItems: 'center' },
-  recipeResultActionTxt: { fontSize: font.xs, fontWeight: '700' },
-  list: { paddingHorizontal: spacing.lg },
-  empty: { textAlign: 'center', marginTop: 32, fontSize: font.sm, lineHeight: 22 },
+  recipeResultName: { fontFamily: type.serifSemi, fontSize: font.md },
+  recipeResultMeta: { fontFamily: type.mono, fontSize: 9, letterSpacing: 1, marginTop: 3 },
+  recipeResultAction: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.sm, borderWidth: 1.5, minWidth: 48, alignItems: 'center' },
+  recipeResultActionTxt: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1 },
+  list: { paddingHorizontal: spacing.lg, flexShrink: 1 },
+  empty: { textAlign: 'center', marginTop: 32, fontFamily: type.serifItalic, fontSize: font.sm, lineHeight: 22 },
   item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, gap: spacing.md },
-  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  checkmark: { color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 16 },
-  itemAmt: { fontSize: font.sm, minWidth: 60 },
-  itemRight: { flex: 1 },
-  itemName: { fontSize: font.sm },
-  itemSources: { fontSize: font.xs, marginTop: 2 },
+  checkbox: { width: 20, height: 20, borderRadius: radius.sm, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  checkmark: { fontSize: 11, lineHeight: 14, fontFamily: type.monoBold },
+  itemMain: { flex: 1 },
+  itemName: { fontFamily: type.mono, fontSize: 13, lineHeight: 18 },
+  itemSources: { fontFamily: type.mono, fontSize: 8, letterSpacing: 1, marginTop: 3 },
+  itemAmt: { fontFamily: type.mono, fontSize: 12, textAlign: 'right', maxWidth: 110 },
+  receiptFooter: { fontFamily: type.mono, fontSize: 9, letterSpacing: 2, textAlign: 'center', marginTop: spacing.sm, marginBottom: spacing.md },
 });

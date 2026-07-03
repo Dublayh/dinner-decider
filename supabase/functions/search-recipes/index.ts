@@ -5,6 +5,7 @@ const SPOONACULAR_KEY = Deno.env.get("SPOONACULAR_API_KEY")!;
 const EFFORT_MAX_TIME: Record<string, number> = {
   quick: 30,
   medium: 60,
+  long: 180,
   weekend: 9999,
 };
 
@@ -65,5 +66,6 @@ serve(async (req) => {
 function toEffort(minutes: number): string {
   if (!minutes || minutes <= 30) return "quick";
   if (minutes <= 60) return "medium";
+  if (minutes <= 180) return "long";
   return "weekend";
 }

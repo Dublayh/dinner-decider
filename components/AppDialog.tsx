@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, Animated, Alert, Platform } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow } from '@/constants/theme';
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 export interface ToastAction { label: string; onPress: () => void }
@@ -27,19 +27,25 @@ export function AppToast({ message, type, visible, action }: ToastProps) {
 
   if (!visible && !message) return null;
 
-  const bg = type === 'error' ? colors.danger : type === 'success' ? colors.primary : colors.textSecondary;
+  // Paper slip with a coloured edge — not a floating coloured pill.
+  const edge = type === 'error' ? colors.danger : type === 'success' ? colors.accent : colors.primary;
 
   return (
     // box-none so the toast body still lets touches pass through (as before),
     // but the action button can receive taps when present.
     <Animated.View
       pointerEvents={action ? 'box-none' : 'none'}
-      style={[styles.toastBox, { backgroundColor: bg, opacity, transform: [{ translateY }] }]}
+      style={[
+        styles.toastBox,
+        { backgroundColor: colors.bgCard, borderColor: colors.ink, opacity, transform: [{ translateY }] },
+        hardShadow(colors.shadow, 3),
+      ]}
     >
-      <Text style={[styles.toastTxt, action ? styles.toastTxtWithAction : null]}>{message}</Text>
+      <View style={[styles.toastEdge, { backgroundColor: edge }]} />
+      <Text style={[styles.toastTxt, { color: colors.textPrimary }, action ? styles.toastTxtWithAction : null]}>{message}</Text>
       {action && (
-        <Pressable onPress={action.onPress} hitSlop={10} style={styles.toastAction}>
-          <Text style={styles.toastActionTxt}>{action.label}</Text>
+        <Pressable onPress={action.onPress} hitSlop={10} style={[styles.toastAction, { backgroundColor: colors.ink }]}>
+          <Text style={[styles.toastActionTxt, { color: colors.stampText }]}>{action.label.toUpperCase()}</Text>
         </Pressable>
       )}
     </Animated.View>
@@ -63,21 +69,26 @@ export function AppConfirmDialog({ visible, title, message, confirmLabel = 'Conf
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.dialogOverlay}>
-        <View style={[styles.dialogBox, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <View style={[styles.dialogBox, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 6)]}>
           <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>{title}</Text>
           {message ? <Text style={[styles.dialogMsg, { color: colors.textSecondary }]}>{message}</Text> : null}
           <View style={styles.dialogBtns}>
             <Pressable
-              style={[styles.dialogBtn, { borderColor: colors.border, backgroundColor: colors.bgMuted, borderWidth: 1 }]}
+              style={[styles.dialogBtn, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}
               onPress={onCancel}
             >
-              <Text style={[styles.dialogBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+              <Text style={[styles.dialogBtnTxt, { color: colors.textPrimary }]}>CANCEL</Text>
             </Pressable>
             <Pressable
-              style={[styles.dialogBtn, { backgroundColor: confirmDestructive ? colors.danger : colors.primary }]}
+              style={[styles.dialogBtn, {
+                backgroundColor: confirmDestructive ? colors.danger : colors.ink,
+                borderColor: confirmDestructive ? colors.danger : colors.ink,
+              }]}
               onPress={onConfirm}
             >
-              <Text style={[styles.dialogBtnTxt, { color: '#fff' }]}>{confirmLabel}</Text>
+              <Text style={[styles.dialogBtnTxt, { color: confirmDestructive ? '#FFF6E8' : colors.stampText }]}>
+                {confirmLabel.toUpperCase()}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -127,16 +138,17 @@ export function useAppAlert() {
 }
 
 const styles = StyleSheet.create({
-  toastBox: { position: 'absolute', bottom: 48, left: 24, right: 24, borderRadius: radius.lg, paddingVertical: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8, zIndex: 9999 },
-  toastTxt: { color: '#fff', fontSize: font.sm, fontWeight: '600', textAlign: 'center' },
+  toastBox: { position: 'absolute', bottom: 48, left: 24, right: 24, borderRadius: radius.md, borderWidth: 1.5, paddingVertical: 13, paddingLeft: 18, paddingRight: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 9999 },
+  toastEdge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5 },
+  toastTxt: { fontFamily: type.mono, fontSize: 12, lineHeight: 17, textAlign: 'center' },
   toastTxtWithAction: { flexShrink: 1, textAlign: 'left' },
-  toastAction: { marginLeft: 14, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.25)' },
-  toastActionTxt: { color: '#fff', fontSize: font.sm, fontWeight: '800' },
-  dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 32 },
-  dialogBox: { width: '100%', maxWidth: 340, borderRadius: radius.xl, borderWidth: 1, padding: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 12 },
-  dialogTitle: { fontSize: font.lg, fontWeight: '700', marginBottom: spacing.sm, textAlign: 'center' },
-  dialogMsg: { fontSize: font.sm, textAlign: 'center', marginBottom: spacing.lg, lineHeight: 20 },
+  toastAction: { marginLeft: 14, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.sm },
+  toastActionTxt: { fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1 },
+  dialogOverlay: { flex: 1, backgroundColor: 'rgba(20,12,4,0.55)', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  dialogBox: { width: '100%', maxWidth: 340, borderRadius: radius.lg, borderWidth: 2, padding: spacing.lg + 4 },
+  dialogTitle: { fontFamily: type.serifBold, fontSize: 21, marginBottom: spacing.sm, textAlign: 'center' },
+  dialogMsg: { fontFamily: type.serif, fontSize: font.sm, textAlign: 'center', marginBottom: spacing.lg, lineHeight: 20 },
   dialogBtns: { flexDirection: 'row', gap: spacing.sm },
-  dialogBtn: { flex: 1, borderRadius: radius.lg, paddingVertical: 13, alignItems: 'center' },
-  dialogBtnTxt: { fontSize: font.sm, fontWeight: '700' },
+  dialogBtn: { flex: 1, borderRadius: radius.md, borderWidth: 1.5, paddingVertical: 13, alignItems: 'center' },
+  dialogBtnTxt: { fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
 });

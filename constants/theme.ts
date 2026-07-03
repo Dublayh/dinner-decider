@@ -1,122 +1,139 @@
+// ═══ "The House Menu" design language ════════════════════════════════════════
+//
+// Letterpress supper-club menu: warm paper, espresso ink, hard offset shadows,
+// square "rubber stamp" chips, serif display type (Fraunces) + mono labels
+// (Space Mono). Light mode = daylight paper; dark mode = candlelight.
+
 // ─── Colour palettes ────────────────────────────────────────────────────────
 
 export const lightColors = {
-  bg:          '#FAF7F2',
-  bgCard:      '#FFFFFF',
-  bgMuted:     '#F2EDE5',
-  bgCardAlt:   '#F5EDD8',
-  primary:      '#C17A3C',
-  primaryLight: '#F5E6D3',
-  primaryDark:  '#8A5228',
-  accent:      '#7A9E7E',
-  accentLight: '#E4EFDF',
-  textPrimary:   '#2C1A0E',
-  textSecondary: '#8C7B6B',
-  textMuted:     '#B5A898',
-  border:       '#E8DDD0',
-  borderStrong: '#D4C4B0',
-  danger:      '#C0392B',
-  dangerLight: '#FDECEA',
-  heroLabel:       '#C17A3C',
-  heroTitle:       '#2C1A0E',
-  heroTitleAccent: '#C17A3C',
-  heroSubtitle:    '#8C7B6B',
-  heroDivider:     'rgba(193,122,60,0.2)',
-  heroPill:        'rgba(193,122,60,0.12)',
-  heroPillBorder:  'rgba(193,122,60,0.25)',
-  heroPillText:    '#C17A3C',
-  cardEatOutBg:     '#C17A3C',
-  cardEatInBg:      '#8A5228',
-  cardRecipeBg:     '#FFFFFF',
-  cardRecipeBorder: '#E8DDD0',
-  cardText:         '#FFFFFF',
-  cardTextSub:      'rgba(255,255,255,0.8)',
-  cardRecipeText:   '#2C1A0E',
-  cardRecipeTextSub:'#8C7B6B',
-  cardArrow:        'rgba(255,255,255,0.6)',
-  cardRecipeArrow:  '#B5A898',
-  chipBg:       '#FFFFFF',
-  chipBorder:   '#E8DDD0',
-  chipText:     '#8C7B6B',
-  chipOnBg:     '#F5E6D3',
-  chipOnBorder: '#C17A3C',
-  chipOnText:   '#8A5228',
-  toggleBg:      '#FFFFFF',
-  toggleBorder:  '#E8DDD0',
-  toggleText:    '#8C7B6B',
-  toggleOnBg:    '#F5E6D3',
-  toggleOnBorder:'#C17A3C',
-  toggleOnText:  '#8A5228',
-  themeBtnBg:     'rgba(193,122,60,0.12)',
-  themeBtnBorder: 'rgba(193,122,60,0.25)',
-  themeBtnIcon:   '#C17A3C',
-  sectionLabel: '#B5A898',
+  bg:          '#F4ECDD',   // warm paper
+  bgCard:      '#FCF7EC',   // lifted paper sheet
+  bgMuted:     '#ECE1CB',
+  bgCardAlt:   '#F6EDD9',
+
+  // Ink — the signature. Outlines interactive elements, fills selected stamps.
+  ink:       '#2C1B0B',
+  stampText: '#F9F2E2',   // text printed on ink fill
+  line:      '#DCCBA9',   // hairline list dividers
+  shadow:    '#2C1B0B',   // hard offset shadow (letterpress plate)
+
+  primary:      '#BC5B27',  // burnt terracotta
+  primaryLight: '#F4DFC5',
+  primaryDark:  '#8C3D12',
+  accent:      '#5F7A4E',   // olive
+  accentLight: '#E2EAD5',
+
+  textPrimary:   '#2C1B0B',
+  textSecondary: '#6E5A41',
+  textMuted:     '#9C8867',
+  border:       '#D9C8A9',  // soft border for inputs / quiet containers
+  borderStrong: '#B39C74',
+  danger:      '#A93226',
+  dangerLight: '#F6E0DC',
+
+  // Chip = stamp. Off: ink outline on paper. On: solid ink, paper text.
+  chipBg:       '#FCF7EC',
+  chipBorder:   '#2C1B0B',
+  chipText:     '#2C1B0B',
+  chipOnBg:     '#2C1B0B',
+  chipOnBorder: '#2C1B0B',
+  chipOnText:   '#F9F2E2',
+
+  toggleBg:      '#FCF7EC',
+  toggleBorder:  '#2C1B0B',
+  toggleText:    '#2C1B0B',
+  toggleOnBg:    '#2C1B0B',
+  toggleOnBorder:'#2C1B0B',
+  toggleOnText:  '#F9F2E2',
+
+  sectionLabel: '#9C8867',
 };
 
 export const darkColors = {
-  bg:        '#12100D',
-  bgCard:    '#1E1810',
-  bgMuted:   '#2C1F14',
-  bgCardAlt: '#1A1408',
-  primary:      '#D4822F',
-  primaryLight: 'rgba(212,130,47,0.15)',
-  primaryDark:  '#E8A24B',
-  accent:      '#7A9E7E',
-  accentLight: 'rgba(122,158,126,0.2)',
-  textPrimary:   '#F5EDD8',
-  textSecondary: 'rgba(215,190,145,0.7)',
-  textMuted:     'rgba(200,160,90,0.5)',
-  border:       'rgba(200,160,80,0.12)',
-  borderStrong: 'rgba(200,160,80,0.25)',
-  danger:      '#E05252',
-  dangerLight: 'rgba(224,82,82,0.15)',
-  heroLabel:       '#C48A3F',
-  heroTitle:       '#F5EDD8',
-  heroTitleAccent: '#D4822F',
-  heroSubtitle:    'rgba(215,190,145,0.65)',
-  heroDivider:     'rgba(200,160,80,0.12)',
-  heroPill:        'rgba(212,130,48,0.12)',
-  heroPillBorder:  'rgba(212,130,48,0.2)',
-  heroPillText:    '#C48A3F',
-  cardEatOutBg:     '#2C1A0A',
-  cardEatInBg:      '#1C1508',
-  cardRecipeBg:     '#0E1218',
-  cardRecipeBorder: 'rgba(100,140,200,0.12)',
-  cardText:         '#F0E4CC',
-  cardTextSub:      'rgba(200,175,130,0.6)',
-  cardRecipeText:   '#F0E4CC',
-  cardRecipeTextSub:'rgba(200,175,130,0.6)',
-  cardArrow:        'rgba(200,160,80,0.35)',
-  cardRecipeArrow:  'rgba(200,160,80,0.35)',
-  chipBg:       '#1E1810',
-  chipBorder:   'rgba(200,160,80,0.15)',
-  chipText:     'rgba(215,190,145,0.6)',
-  chipOnBg:     'rgba(212,130,48,0.18)',
-  chipOnBorder: '#D4822F',
-  chipOnText:   '#E8A24B',
-  toggleBg:      '#1E1810',
-  toggleBorder:  'rgba(200,160,80,0.15)',
-  toggleText:    'rgba(215,190,145,0.6)',
-  toggleOnBg:    'rgba(212,130,48,0.15)',
-  toggleOnBorder:'#D4822F',
-  toggleOnText:  '#E8A24B',
-  themeBtnBg:     'rgba(212,130,48,0.12)',
-  themeBtnBorder: 'rgba(212,130,48,0.2)',
-  themeBtnIcon:   '#D4822F',
-  sectionLabel: 'rgba(200,160,90,0.5)',
+  bg:          '#171009',   // candlelit room
+  bgCard:      '#231913',
+  bgMuted:     '#2E2115',
+  bgCardAlt:   '#291E11',
+
+  ink:       '#E6D2A8',   // cream ink on dark paper
+  stampText: '#231507',
+  line:      'rgba(230,210,168,0.18)',
+  shadow:    'rgba(0,0,0,0.55)',
+
+  primary:      '#D8863B',  // candle amber
+  primaryLight: 'rgba(216,134,59,0.16)',
+  primaryDark:  '#EDAF6A',
+  accent:      '#8FA97C',
+  accentLight: 'rgba(143,169,124,0.18)',
+
+  textPrimary:   '#F2E7CE',
+  textSecondary: 'rgba(226,203,158,0.78)',
+  textMuted:     'rgba(226,203,158,0.48)',
+  border:       'rgba(230,210,168,0.22)',
+  borderStrong: 'rgba(230,210,168,0.42)',
+  danger:      '#E05B4C',
+  dangerLight: 'rgba(224,91,76,0.14)',
+
+  chipBg:       '#231913',
+  chipBorder:   '#E6D2A8',
+  chipText:     '#E6D2A8',
+  chipOnBg:     '#E6D2A8',
+  chipOnBorder: '#E6D2A8',
+  chipOnText:   '#231507',
+
+  toggleBg:      '#231913',
+  toggleBorder:  '#E6D2A8',
+  toggleText:    '#E6D2A8',
+  toggleOnBg:    '#E6D2A8',
+  toggleOnBorder:'#E6D2A8',
+  toggleOnText:  '#231507',
+
+  sectionLabel: 'rgba(226,203,158,0.48)',
 };
 
 export type ThemeColors = typeof lightColors;
 export type ThemeMode = 'light' | 'dark';
 
-export const radius = { sm: 8, md: 14, lg: 20, xl: 28, full: 999 };
+// ─── Typography ─────────────────────────────────────────────────────────────
+// Custom families are static weights — never pair them with fontWeight
+// (Android will fake-bold or fall back to the system font).
+
+export const type = {
+  serif:          'Fraunces_400Regular',
+  serifItalic:    'Fraunces_400Regular_Italic',
+  serifSemi:      'Fraunces_600SemiBold',
+  serifSemiItalic:'Fraunces_600SemiBold_Italic',
+  serifBold:      'Fraunces_700Bold',
+  serifBlack:     'Fraunces_900Black',
+  serifBlackItalic:'Fraunces_900Black_Italic',
+  mono:           'SpaceMono_400Regular',
+  monoBold:       'SpaceMono_700Bold',
+};
+
+// ─── Shape & scale ──────────────────────────────────────────────────────────
+// The pill is dead. Corners are square-ish, like printed card stock.
+
+export const radius = { sm: 2, md: 3, lg: 5, xl: 8, full: 999 };
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
 export const font = { xs: 11, sm: 13, md: 15, lg: 18, xl: 22, xxl: 28, display: 42 };
 
+// Hard offset shadow — stacked card stock. Works on Android (new arch) + web.
+export const hardShadow = (color: string, size = 3) =>
+  ({ boxShadow: `${size}px ${size}px 0px ${color}` });
+
+// Pressed state for letterpress buttons: sink into the page.
+export const pressedShadow = (color: string) => ({
+  transform: [{ translateX: 2 }, { translateY: 2 }],
+  boxShadow: `1px 1px 0px ${color}`,
+});
+
+// ─── Wheel ──────────────────────────────────────────────────────────────────
+// Vintage menu-board palette: terracotta, olive, brick, mustard, slate…
+
 export const wheelColors = [
-  '#C17A3C','#E8A96A','#7A9E7E','#A8C9AB',
-  '#8B6F47','#C4A882','#C0695A','#E8A89F',
-  '#5B7FA6','#96B4D0',
+  '#B4551F', '#6F7D46', '#9C3D2E', '#C9962E', '#4E6379',
+  '#7E5233', '#587D63', '#C07248', '#7D5A70', '#3F5B52',
 ];
 
 // Legacy export so existing imports of `colors` still compile

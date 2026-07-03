@@ -31,13 +31,14 @@
       "name": "Let's Eat!",
       "shortName": "Let's Eat",
       "description": "Spin the wheel, decide dinner.",
-      "themeColor": "#C17A3C",
-      "backgroundColor": "#FAF7F2",
+      "themeColor": "#BC5B27",
+      "backgroundColor": "#F4ECDD",
       "preferRelatedApplications": false,
       "display": "standalone"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "extra": {
       "router": {},

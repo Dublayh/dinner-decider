@@ -1,32 +1,30 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, Alert, useWindowDimensions } from 'react-native';
+import { useState, useMemo, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, TextInput, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withSequence, withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
-import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput as BSTextInput } from '@gorhom/bottom-sheet';
-import { TextInput } from 'react-native';
-const BottomSheetTextInput = Platform.OS === 'web' ? TextInput : BSTextInput;
+import DraggableSheet from '@/components/DraggableSheet';
 import { useEatInStore, useMealPlanSpinStore } from '@/store/wheelStore';
 import SpinWheel from '@/components/SpinWheelUniversal';
 import { addCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import { setMealPlanEntry } from '@/lib/mealPlan';
-import type { Recipe, WheelItem } from '@/types';
+import { EFFORT_SHORT, type Recipe, type WheelItem } from '@/types';
 import { useAppAlert, AppToast } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow, pressedShadow } from '@/constants/theme';
 
 const CONFETTI = [
-  { angle: 0,   color: '#D4822F', dist: 80 },
-  { angle: 45,  color: '#7A9E7E', dist: 90 },
-  { angle: 90,  color: '#E8A24B', dist: 74 },
-  { angle: 135, color: '#C0695A', dist: 86 },
-  { angle: 180, color: '#5B7FA6', dist: 80 },
-  { angle: 225, color: '#C4A882', dist: 92 },
-  { angle: 270, color: '#D4822F', dist: 74 },
-  { angle: 315, color: '#7A9E7E', dist: 86 },
+  { angle: 0,   color: '#B4551F', dist: 80 },
+  { angle: 45,  color: '#6F7D46', dist: 90 },
+  { angle: 90,  color: '#C9962E', dist: 74 },
+  { angle: 135, color: '#9C3D2E', dist: 86 },
+  { angle: 180, color: '#4E6379', dist: 80 },
+  { angle: 225, color: '#C07248', dist: 92 },
+  { angle: 270, color: '#B4551F', dist: 74 },
+  { angle: 315, color: '#587D63', dist: 86 },
 ];
 
 function ConfettiDot({ angle, color, dist, trigger }: {
@@ -67,9 +65,7 @@ export default function EatInWheel() {
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const [celebrateTrigger, setCelebrateTrigger] = useState(0);
 
-  const sheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['9%', '75%'], []);
-  const sheetPeek = height * 0.08;
+  const sheetPeek = Math.max(56, height * 0.08);
 
   const winnerOpacity = useSharedValue(0);
   const winnerY = useSharedValue(30);
@@ -158,12 +154,16 @@ export default function EatInWheel() {
         <View style={styles.topBar}>
           <Pressable
             onPress={handleBack}
-            style={[styles.iconBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+            style={({ pressed }) => [
+              styles.iconBtn,
+              { backgroundColor: colors.bgCard, borderColor: colors.ink },
+              pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 2),
+            ]}
           >
-            <Text style={[styles.iconBtnTxt, { color: colors.primary }]}>←</Text>
+            <Text style={[styles.iconBtnTxt, { color: colors.textPrimary }]}>←</Text>
           </Pressable>
-          <Text style={[styles.heading, { color: colors.textPrimary }]}>
-            {wheelItems.length} {wheelItems.length === 1 ? 'recipe' : 'recipes'} on the wheel
+          <Text style={[styles.heading, { color: colors.textMuted }]}>
+            {wheelItems.length} {wheelItems.length === 1 ? 'RECIPE' : 'RECIPES'} ON THE WHEEL
           </Text>
           <View style={styles.iconBtnSpacer} />
         </View>
@@ -176,42 +176,36 @@ export default function EatInWheel() {
           <Animated.View style={[styles.winnerOuter, winnerAnimStyle]}>
             {winner && (
               <Pressable
-                style={[styles.resultCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                style={[styles.resultCard, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 4)]}
                 onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: winner.id } })}
               >
                 <View style={styles.confettiOrigin} pointerEvents="none">
                   {CONFETTI.map((c, i) => <ConfettiDot key={i} {...c} trigger={celebrateTrigger} />)}
                 </View>
-                <Text style={styles.resultEmoji}>🎉</Text>
-                <Text style={[styles.resultName, { color: colors.primaryDark }]}>{winner.name}</Text>
-                <Text style={[styles.resultSub, { color: colors.primary }]}>
-                  {winner.cuisine}{winner.readyInMinutes > 0 ? ` · ${winner.readyInMinutes} min` : ''}
+                <Text style={[styles.resultKicker, { color: colors.primary }]}>★ TONIGHT'S PICK ★</Text>
+                <Text style={[styles.resultName, { color: colors.textPrimary }]}>{winner.name}</Text>
+                <Text style={[styles.resultSub, { color: colors.textMuted }]}>
+                  {winner.cuisine.toUpperCase()}{winner.readyInMinutes > 0 ? ` · ${winner.readyInMinutes} MIN` : ''}
                 </Text>
-                <Text style={[styles.resultHint, { color: colors.primaryDark }]}>📖 Tap to view full recipe</Text>
+                <Text style={[styles.resultHint, { color: colors.textSecondary }]}>📖 Tap to view the full recipe</Text>
               </Pressable>
             )}
           </Animated.View>
         </View>
       </SafeAreaView>
 
-      <BottomSheet
-        ref={sheetRef}
-        index={0}
-        snapPoints={snapPoints}
-        backgroundStyle={{ backgroundColor: colors.bgCard }}
-        handleIndicatorStyle={{ backgroundColor: colors.borderStrong }}
+      <DraggableSheet
+        peek={sheetPeek}
+        expandedFraction={0.75}
+        contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 24 }]}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={[styles.sheetContent, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          <BottomSheetTextInput
+          <TextInput
             style={[styles.input, {
-              borderColor: colors.border,
+              borderColor: colors.borderStrong,
               backgroundColor: isDark ? colors.bgMuted : colors.bg,
               color: colors.textPrimary,
             }]}
-            placeholder="Add a recipe to the wheel..."
+            placeholder="Add a recipe to the wheel…"
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -220,43 +214,42 @@ export default function EatInWheel() {
           />
 
           {suggestions.length > 0 && (
-            <View style={[styles.suggestions, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+            <View style={[styles.suggestions, { backgroundColor: colors.bg, borderColor: colors.ink }]}>
               {suggestions.map(r => (
-                <Pressable key={r.id} style={[styles.suggestionRow, { borderBottomColor: colors.border }]} onPress={() => handleAddFromSuggestion(r)}>
+                <Pressable key={r.id} style={[styles.suggestionRow, { borderBottomColor: colors.line }]} onPress={() => handleAddFromSuggestion(r)}>
                   <View style={styles.suggestionInfo}>
                     <Text style={[styles.suggestionName, { color: colors.textPrimary }]}>{r.name}</Text>
                     <Text style={[styles.suggestionMeta, { color: colors.textMuted }]}>
-                      {r.cuisine} · {r.effort === 'quick' ? 'Quick' : r.effort === 'medium' ? 'Medium' : 'Weekend'}
+                      {`${r.cuisine} · ${EFFORT_SHORT[r.effort]}`.toUpperCase()}
                     </Text>
                   </View>
-                  <Text style={[styles.suggestionAdd, { color: colors.primary }]}>+ Add</Text>
+                  <Text style={[styles.suggestionAdd, { color: colors.primary }]}>+ ADD</Text>
                 </Pressable>
               ))}
             </View>
           )}
 
           {noMatches && (
-            <Pressable style={[styles.addCustomRow, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]} onPress={handleAddCustom}>
-              <Text style={[styles.addCustomTxt, { color: colors.primaryDark }]}>
-                Add "<Text style={styles.addCustomBold}>{query.trim()}</Text>" as custom
+            <Pressable style={[styles.addCustomRow, { borderColor: colors.borderStrong }]} onPress={handleAddCustom}>
+              <Text style={[styles.addCustomTxt, { color: colors.textSecondary }]}>
+                Add "<Text style={[styles.addCustomBold, { color: colors.textPrimary }]}>{query.trim()}</Text>" as a custom entry
               </Text>
             </Pressable>
           )}
 
-          <Text style={[styles.sheetLabel, { color: colors.sectionLabel }]}>On the wheel</Text>
+          <Text style={[styles.sheetLabel, { color: colors.sectionLabel }]}>ON THE WHEEL</Text>
           {wheelItems.length === 0 && (
             <Text style={[styles.emptyTxt, { color: colors.textMuted }]}>No recipes yet — add some above.</Text>
           )}
           {wheelItems.map(item => (
-            <View key={item.id} style={[styles.itemRow, { borderBottomColor: colors.border }]}>
+            <View key={item.id} style={[styles.itemRow, { borderBottomColor: colors.line }]}>
               <Text style={[styles.itemName, { color: colors.textPrimary }]}>{item.label}</Text>
               <Pressable onPress={() => handleRemove(item)} hitSlop={12}>
                 <Text style={[styles.removeX, { color: colors.textMuted }]}>✕</Text>
               </Pressable>
             </View>
           ))}
-        </BottomSheetScrollView>
-      </BottomSheet>
+      </DraggableSheet>
     </View>
   );
 }
@@ -269,34 +262,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm, paddingBottom: spacing.sm,
   },
-  iconBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  iconBtnTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
-  iconBtnSpacer: { width: 36 },
-  heading: { flex: 1, fontSize: font.sm, fontWeight: '600', textAlign: 'center' },
+  iconBtn: { width: 38, height: 38, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  iconBtnTxt: { fontSize: 18, lineHeight: 21 },
+  iconBtnSpacer: { width: 38 },
+  heading: { flex: 1, fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1.5, textAlign: 'center' },
   mainContent: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   winnerOuter: { width: '100%', paddingHorizontal: spacing.lg, marginTop: spacing.md },
-  resultCard: { borderRadius: radius.xl, borderWidth: 1.5, padding: spacing.lg, alignItems: 'center', gap: 4, overflow: 'visible' },
-  resultEmoji: { fontSize: 28, marginBottom: 4 },
-  resultName: { fontSize: font.xl, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },
-  resultSub: { fontSize: font.sm },
-  resultHint: { fontSize: font.xs, fontWeight: '500', marginTop: 6, opacity: 0.8 },
+  resultCard: { borderRadius: radius.lg, borderWidth: 2, padding: spacing.lg, alignItems: 'center', gap: 4, overflow: 'visible' },
+  resultKicker: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 3, marginBottom: 4 },
+  resultName: { fontFamily: type.serifBold, fontSize: 26, textAlign: 'center' },
+  resultSub: { fontFamily: type.mono, fontSize: 10, letterSpacing: 1.5, marginTop: 2 },
+  resultHint: { fontFamily: type.serifItalic, fontSize: font.sm, marginTop: 8 },
   confettiOrigin: { position: 'absolute', top: '50%', left: '50%', width: 0, height: 0 },
-  confettiDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4 },
+  confettiDot: { position: 'absolute', width: 8, height: 8, borderRadius: 1 },
   sheetContent: { paddingHorizontal: spacing.lg },
-  sheetTitle: { fontSize: font.md, fontWeight: '700', marginBottom: spacing.md },
-  sheetLabel: { fontSize: font.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: spacing.md, marginBottom: spacing.sm },
-  emptyTxt: { fontSize: font.sm, fontStyle: 'italic' },
-  input: { borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, fontSize: font.sm, marginBottom: spacing.sm },
+  sheetLabel: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2.5, marginTop: spacing.md, marginBottom: spacing.sm },
+  emptyTxt: { fontFamily: type.serifItalic, fontSize: font.sm },
+  input: { borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, fontFamily: type.mono, fontSize: 13, marginBottom: spacing.sm },
   suggestions: { borderWidth: 1.5, borderRadius: radius.md, marginBottom: spacing.sm, overflow: 'hidden' },
   suggestionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: 1 },
   suggestionInfo: { flex: 1 },
-  suggestionName: { fontSize: font.sm, fontWeight: '600' },
-  suggestionMeta: { fontSize: font.xs },
-  suggestionAdd: { fontSize: font.sm, fontWeight: '600' },
-  addCustomRow: { borderRadius: radius.md, padding: 12, marginBottom: spacing.sm, borderWidth: 1 },
-  addCustomTxt: { fontSize: font.sm },
-  addCustomBold: { fontWeight: '700' },
+  suggestionName: { fontFamily: type.serifSemi, fontSize: font.md },
+  suggestionMeta: { fontFamily: type.mono, fontSize: 9, letterSpacing: 1, marginTop: 2 },
+  suggestionAdd: { fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1 },
+  addCustomRow: { borderRadius: radius.md, padding: 12, marginBottom: spacing.sm, borderWidth: 1.5, borderStyle: 'dashed' },
+  addCustomTxt: { fontFamily: type.serifItalic, fontSize: font.sm },
+  addCustomBold: { fontFamily: type.serifSemiItalic },
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1 },
-  itemName: { fontSize: font.sm, flex: 1 },
+  itemName: { fontFamily: type.serif, fontSize: font.md, flex: 1 },
   removeX: { fontSize: 16, paddingLeft: 12 },
 });

@@ -3,7 +3,7 @@ import { View, Pressable, Text, StyleSheet, Platform } from 'react-native';
 import { useSharedValue, withTiming, Easing, runOnJS, useDerivedValue } from 'react-native-reanimated';
 import type { WheelItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { wheelColors } from '@/constants/theme';
+import { wheelColors, radius as themeRadius, type, hardShadow, pressedShadow } from '@/constants/theme';
 
 interface Props<T> {
   items: WheelItem<T>[];
@@ -45,24 +45,34 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
         ctx.fillStyle = wheelColors[i % wheelColors.length];
         ctx.fill();
 
-        // Label
+        // Label — cream mono, like painted lettering on a fairground wheel
         ctx.save();
         ctx.translate(R, R);
         ctx.rotate(start + slice / 2);
         ctx.textAlign = 'right';
-        ctx.fillStyle = 'white';
-        ctx.font = `bold 11px sans-serif`;
+        ctx.fillStyle = '#F7EFDD';
+        ctx.font = `10px "SpaceMono_700Bold", monospace`;
         const label = item.label.length > 13 ? item.label.slice(0, 12) + '…' : item.label;
-        ctx.fillText(label, R - 10, 4);
+        ctx.fillText(label, R - 12, 4);
         ctx.restore();
       });
     }
 
-    // Center cap
+    // Ink rim
+    ctx.beginPath();
+    ctx.arc(R, R, R - 1.5, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = colors.ink;
+    ctx.stroke();
+
+    // Center cap — paper with ink ring
     ctx.beginPath();
     ctx.arc(R, R, 22, 0, Math.PI * 2);
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = colors.bgCard;
     ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = colors.ink;
+    ctx.stroke();
   }
 
   useEffect(() => {
@@ -73,8 +83,8 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
     canvas.height = size * dpr;
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.scale(dpr, dpr);
-    drawWheel(0);
-  }, [items, size]);
+    drawWheel(rotationRef.current);
+  }, [items, size, colors]);
 
   const handleSpinEnd = useCallback((finalRad: number) => {
     isSpinning.current = false;
@@ -116,14 +126,14 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
   }, [items, rotation, handleSpinEnd]);
 
   if (!items.length) return (
-    <View style={[styles.empty, { width: size, height: size, backgroundColor: colors.bgMuted }]}>
-      <Text style={[styles.emptyTxt, { color: colors.textMuted }]}>No items yet</Text>
+    <View style={[styles.empty, { width: size, height: size, backgroundColor: colors.bgMuted, borderColor: colors.borderStrong }]}>
+      <Text style={[styles.emptyTxt, { color: colors.textMuted }]}>Nothing on the wheel yet</Text>
     </View>
   );
 
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.pointer, { left: size / 2 - 12, borderTopColor: colors.primary }]} />
+      <View style={[styles.pointer, { left: size / 2 - 12, borderTopColor: colors.ink }]} />
       <canvas
         ref={canvasRef}
         width={size * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)}
@@ -131,10 +141,14 @@ export default function SpinWheelWeb<T>({ items, onSpinEnd, size = 300 }: Props<
         style={{ width: size, height: size, borderRadius: size / 2 }}
       />
       <Pressable
-        style={[styles.spinBtn, { width: size * 0.6, backgroundColor: colors.primary }]}
+        style={({ pressed }) => [
+          styles.spinBtn,
+          { width: size * 0.6, backgroundColor: colors.primary, borderColor: colors.ink },
+          pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 3),
+        ]}
         onPress={spin}
       >
-        <Text style={styles.spinBtnTxt}>Spin!</Text>
+        <Text style={styles.spinBtnTxt}>SPIN THE WHEEL</Text>
       </Pressable>
     </View>
   );
@@ -148,8 +162,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 12, borderRightWidth: 12, borderTopWidth: 22,
     borderLeftColor: 'transparent', borderRightColor: 'transparent',
   },
-  empty: { alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  emptyTxt: { fontSize: 14 },
-  spinBtn: { marginTop: 20, borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
-  spinBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  empty: { alignItems: 'center', justifyContent: 'center', borderRadius: 999, borderWidth: 1.5, borderStyle: 'dashed' },
+  emptyTxt: { fontFamily: type.serifItalic, fontSize: 14 },
+  spinBtn: { marginTop: 22, borderRadius: themeRadius.md, borderWidth: 1.5, paddingVertical: 14, alignItems: 'center' },
+  spinBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 13, letterSpacing: 2.5 },
 });

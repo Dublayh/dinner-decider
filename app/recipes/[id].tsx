@@ -12,10 +12,10 @@ import type { Recipe, Ingredient, EffortLevel } from '@/types';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
 import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow } from '@/constants/theme';
 
 const EFFORT_LABEL: Record<string, string> = {
-  quick: 'Quick (< 30 min)', medium: 'Medium (30–60 min)', weekend: 'Weekend project',
+  quick: 'Quick (< 30 min)', medium: 'Medium (30–60 min)', long: 'Long (1–3 hrs)', weekend: 'Weekend project',
 };
 
 // Parse amount string to a number (handles "1/2", "1 1/2", "2-3", decimals)
@@ -279,7 +279,7 @@ export default function RecipeDetail() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} action={toast?.action} />
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
-      <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
+      <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}><Text style={[styles.backTxt, { color: colors.textPrimary }]}>←</Text></Pressable>
       <Text style={[styles.error, { color: colors.textMuted }]}>Recipe not found.</Text>
     </SafeAreaView>
   );
@@ -292,17 +292,17 @@ export default function RecipeDetail() {
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
         <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
           <View style={styles.topRow}>
-            <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
+            <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}><Text style={[styles.backTxt, { color: colors.textPrimary }]}>←</Text></Pressable>
             <View style={styles.topActions}>
-              <Pressable onPress={handleAddToList} style={[styles.shareBtn, { backgroundColor: colors.bgMuted, borderColor: colors.border }]}>
+              <Pressable onPress={handleAddToList} style={[styles.shareBtn, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}>
                 <Text style={{ fontSize: 16 }}>🛒</Text>
                 {onList && <View style={[styles.listDot, { backgroundColor: colors.primary, borderColor: colors.bg }]} />}
               </Pressable>
-              <Pressable onPress={handleShare} style={[styles.shareBtn, { backgroundColor: colors.bgMuted, borderColor: colors.border }]}>
+              <Pressable onPress={handleShare} style={[styles.shareBtn, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}>
                 <Text style={{ fontSize: 16 }}>↑</Text>
               </Pressable>
-              <Pressable onPress={() => { setEditing(true); ensureImportableLoaded(); }} style={[styles.editBtn, { backgroundColor: colors.primaryLight }]}><Text style={[styles.editBtnTxt, { color: colors.primaryDark }]}>Edit</Text></Pressable>
-              <Pressable onPress={handleDelete} style={[styles.deleteActionBtn, { backgroundColor: colors.dangerLight }]}><Text style={[styles.deleteBtnTxt, { color: colors.danger }]}>Delete</Text></Pressable>
+              <Pressable onPress={() => { setEditing(true); ensureImportableLoaded(); }} style={[styles.editBtn, { backgroundColor: colors.ink, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}><Text style={[styles.editBtnTxt, { color: colors.stampText }]}>EDIT</Text></Pressable>
+              <Pressable onPress={handleDelete} style={[styles.deleteActionBtn, { backgroundColor: colors.bgCard, borderColor: colors.danger }, hardShadow(colors.shadow, 2)]}><Text style={[styles.deleteBtnTxt, { color: colors.danger }]}>DELETE</Text></Pressable>
             </View>
           </View>
 
@@ -310,39 +310,34 @@ export default function RecipeDetail() {
           <Text style={[styles.title, { color: colors.textPrimary }]}>{recipe.name}</Text>
           <View style={styles.metaRow}>
             {[recipe.cuisine, EFFORT_LABEL[recipe.effort], recipe.readyInMinutes > 0 ? `⏱ ${recipe.readyInMinutes} min` : null].filter(Boolean).map((m, i) => (
-              <View key={i} style={[styles.metaChip, { backgroundColor: colors.bgMuted }]}><Text style={[styles.metaChipTxt, { color: colors.textSecondary }]}>{m}</Text></View>
+              <View key={i} style={[styles.metaChip, { borderColor: colors.borderStrong }]}><Text style={[styles.metaChipTxt, { color: colors.textSecondary }]}>{String(m).toUpperCase()}</Text></View>
             ))}
-            <View style={[styles.scaleGroup, { borderColor: colors.primary, backgroundColor: colors.bgMuted }]}>
-              {[1, 2, 3].map((s, i) => (
+            <View style={[styles.scaleGroup, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}>
+              {[1, 2, 3].map(s => (
                 <Pressable
                   key={s}
                   onPress={() => setScale(s)}
-                  style={[
-                    styles.scaleBtn,
-                    scale === s && { backgroundColor: colors.primary },
-                    i === 0 && styles.scaleBtnFirst,
-                    i === 2 && styles.scaleBtnLast,
-                  ]}
+                  style={[styles.scaleBtn, scale === s && { backgroundColor: colors.ink }]}
                 >
-                  <Text style={[styles.scaleBtnTxt, { color: scale === s ? '#fff' : colors.textSecondary }]}>{s}x</Text>
+                  <Text style={[styles.scaleBtnTxt, { color: scale === s ? colors.stampText : colors.textSecondary }]}>{s}×</Text>
                 </Pressable>
               ))}
             </View>
           </View>
 
           {hasSections && (
-            <Pressable style={[styles.allIngBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]} onPress={() => setShowAllIngredients(v => !v)}>
-              <Text style={[styles.allIngBtnTxt, { color: colors.primaryDark }]}>{showAllIngredients ? '▲ Hide shopping list' : '▼ Show all ingredients'}</Text>
+            <Pressable style={[styles.allIngBtn, { borderColor: colors.ink }]} onPress={() => setShowAllIngredients(v => !v)}>
+              <Text style={[styles.allIngBtnTxt, { color: colors.textPrimary }]}>{showAllIngredients ? '▲ HIDE SHOPPING LIST' : '▼ SHOW ALL INGREDIENTS'}</Text>
             </Pressable>
           )}
           {hasSections && showAllIngredients && (
-            <View style={[styles.allIngCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-              <Text style={[styles.allIngTitle, { color: colors.primary }]}>All Ingredients</Text>
+            <View style={[styles.allIngCard, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}>
+              <Text style={[styles.allIngTitle, { color: colors.primary }]}>ALL INGREDIENTS</Text>
               {recipe.sections!.map((sec, si) => sec.ingredients.length > 0 && (
                 <View key={si} style={styles.allIngSection}>
                   {sec.name ? <Text style={[styles.allIngSectionName, { color: colors.textMuted }]}>{sec.name}</Text> : null}
                   {sec.ingredients.map((ing, i) => (
-                    <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
+                    <View key={i} style={[styles.ingRow, { borderBottomColor: colors.line }]}>
                       <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, 1, scale)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                       <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                     </View>
@@ -354,11 +349,11 @@ export default function RecipeDetail() {
 
           {hasSections ? recipe.sections!.map((sec, si) => (
             <View key={si} style={styles.sectionBlock}>
-              {sec.name ? <Text style={[styles.sectionHeader, { color: colors.textPrimary, borderBottomColor: colors.primaryLight }]}>{sec.name}</Text> : null}
+              {sec.name ? <Text style={[styles.sectionHeader, { color: colors.textPrimary, borderBottomColor: colors.ink }]}>{sec.name}</Text> : null}
               {sec.ingredients.length > 0 && <>
                 <Text style={[styles.sectionLabel, { color: colors.sectionLabel }]}>Ingredients</Text>
                 {sec.ingredients.map((ing, i) => (
-                  <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
+                  <View key={i} style={[styles.ingRow, { borderBottomColor: colors.line }]}>
                     <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, 1, scale)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                     <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                   </View>
@@ -368,7 +363,7 @@ export default function RecipeDetail() {
                 <Text style={[styles.sectionLabel, { color: colors.sectionLabel }]}>Directions</Text>
                 {sec.steps.map(step => (
                   <View key={step.number} style={styles.stepRow}>
-                    <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{step.number}</Text></View>
+                    <View style={[styles.stepNum, { borderColor: colors.ink }]}><Text style={[styles.stepNumTxt, { color: colors.textPrimary }]}>{step.number}</Text></View>
                     <Text style={[styles.stepTxt, { color: colors.textPrimary }]}>{step.step}</Text>
                   </View>
                 ))}
@@ -379,7 +374,7 @@ export default function RecipeDetail() {
             {recipe.ingredients.length === 0
               ? <Text style={[styles.empty, { color: colors.textMuted }]}>No ingredients listed.</Text>
               : recipe.ingredients.map((ing, i) => (
-                  <View key={i} style={[styles.ingRow, { borderBottomColor: colors.border }]}>
+                  <View key={i} style={[styles.ingRow, { borderBottomColor: colors.line }]}>
                     <Text style={[styles.ingAmt, { color: colors.textMuted }]}>{scaleAmount(ing.amount, 1, scale)}{ing.unit ? ` ${ing.unit}` : ''}</Text>
                     <Text style={[styles.ingName, { color: colors.textPrimary }]}>{ing.name}</Text>
                   </View>
@@ -390,7 +385,7 @@ export default function RecipeDetail() {
               ? <Text style={[styles.empty, { color: colors.textMuted }]}>No steps listed.</Text>
               : recipe.steps.map(step => (
                   <View key={step.number} style={styles.stepRow}>
-                    <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{step.number}</Text></View>
+                    <View style={[styles.stepNum, { borderColor: colors.ink }]}><Text style={[styles.stepNumTxt, { color: colors.textPrimary }]}>{step.number}</Text></View>
                     <Text style={[styles.stepTxt, { color: colors.textPrimary }]}>{step.step}</Text>
                   </View>
                 ))
@@ -408,9 +403,9 @@ export default function RecipeDetail() {
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
         <View style={styles.topRow}>
-          <Pressable onPress={() => setEditing(false)} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}><Text style={[styles.backTxt, { color: colors.primary }]}>←</Text></Pressable>
-          <Pressable style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnTxt}>Save</Text>}
+          <Pressable onPress={() => setEditing(false)} style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}><Text style={[styles.backTxt, { color: colors.textPrimary }]}>←</Text></Pressable>
+          <Pressable style={[styles.saveBtn, { backgroundColor: colors.primary, borderColor: colors.ink, opacity: saving ? 0.6 : 1 }, hardShadow(colors.shadow, 3)]} onPress={handleSave} disabled={saving}>
+            {saving ? <ActivityIndicator color="#FFF6E8" size="small" /> : <Text style={styles.saveBtnTxt}>SAVE</Text>}
           </Pressable>
         </View>
         <Text style={[styles.editHeading, { color: colors.textPrimary }]}>Edit Recipe</Text>
@@ -444,8 +439,8 @@ export default function RecipeDetail() {
           {CUISINE_OPTIONS.map(c => {
             const on = editCuisine === c;
             return (
-              <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => setEditCuisine(c)}>
-                <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '600' : '500' }]}>{c}</Text>
+              <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => setEditCuisine(c)}>
+                <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{c}</Text>
               </Pressable>
             );
           })}
@@ -456,8 +451,8 @@ export default function RecipeDetail() {
           {EFFORT_OPTIONS.map(({ label, value }) => {
             const on = editEffort === value;
             return (
-              <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => setEditEffort(value)}>
-                <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '600' : '500' }]}>{label}</Text>
+              <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => setEditEffort(value)}>
+                <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{label}</Text>
               </Pressable>
             );
           })}
@@ -494,7 +489,7 @@ export default function RecipeDetail() {
           <Text style={[styles.label, { color: colors.sectionLabel, marginTop: spacing.md }]}>Directions</Text>
           {editSteps.map((step, i) => (
             <View key={i} style={styles.stepEditRow}>
-              <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{i + 1}</Text></View>
+              <View style={[styles.stepNum, { borderColor: colors.ink }]}><Text style={[styles.stepNumTxt, { color: colors.textPrimary }]}>{i + 1}</Text></View>
               <TextInput style={[inputStyle, styles.stepInput, { marginBottom: 0 }]} value={step} onChangeText={v => updStep(i, v)} multiline placeholder={`Step ${i + 1}...`} placeholderTextColor={colors.textMuted} />
               {editSteps.length > 1 && <Pressable onPress={() => remStep(i)}><Text style={[styles.remTxt, { color: colors.textMuted }]}>✕</Text></Pressable>}
             </View>
@@ -534,7 +529,7 @@ export default function RecipeDetail() {
               <Text style={[styles.subLabel, { color: colors.sectionLabel }]}>Directions</Text>
               {sec.steps.map((step, ii) => (
                 <View key={ii} style={styles.stepEditRow}>
-                  <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{ii + 1}</Text></View>
+                  <View style={[styles.stepNum, { borderColor: colors.ink }]}><Text style={[styles.stepNumTxt, { color: colors.textPrimary }]}>{ii + 1}</Text></View>
                   <TextInput style={[inputStyle, styles.stepInput, { marginBottom: 0 }]} value={step} onChangeText={v => updSecStep(si, ii, v)} multiline placeholder={`Step ${ii + 1}...`} placeholderTextColor={colors.textMuted} />
                   {sec.steps.length > 1 && <Pressable onPress={() => remSecStep(si, ii)}><Text style={[styles.remTxt, { color: colors.textMuted }]}>✕</Text></Pressable>}
                 </View>
@@ -555,60 +550,58 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 60 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
-  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
+  backBtn: { width: 38, height: 38, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  backTxt: { fontSize: 18, lineHeight: 21 },
   topActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  shareBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  listDot: { position: 'absolute', top: -1, right: -1, width: 11, height: 11, borderRadius: 6, borderWidth: 1.5 },
-  editBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
-  editBtnTxt: { fontWeight: '600', fontSize: font.sm },
-  deleteActionBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.sm },
-  deleteBtnTxt: { fontWeight: '600', fontSize: font.sm },
-  image: { width: '100%', height: 200, borderRadius: radius.lg, marginBottom: spacing.md },
-  imagePicker: { width: '100%', height: 180, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm, overflow: 'hidden' },
+  shareBtn: { width: 38, height: 38, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  listDot: { position: 'absolute', top: -4, right: -4, width: 11, height: 11, borderRadius: radius.sm, borderWidth: 1.5 },
+  editBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.sm, borderWidth: 1.5 },
+  editBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1.5 },
+  deleteActionBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.sm, borderWidth: 1.5 },
+  deleteBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1.5 },
+  image: { width: '100%', height: 200, borderRadius: radius.md, marginBottom: spacing.md },
+  imagePicker: { width: '100%', height: 180, borderRadius: radius.md, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm, overflow: 'hidden' },
   imagePreview: { width: '100%', height: '100%' },
-  imagePickerTxt: { fontSize: font.sm },
+  imagePickerTxt: { fontFamily: type.serifItalic, fontSize: font.sm },
   removeImageBtn: { alignItems: 'center', marginBottom: spacing.md },
-  removeImageTxt: { fontSize: font.sm, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '700', marginBottom: spacing.sm },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.lg },
-  metaChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full },
-  metaChipTxt: { fontSize: font.xs, fontWeight: '500' },
-  scaleGroup: { flexDirection: 'row', borderRadius: radius.full, borderWidth: 1.5, overflow: 'hidden' },
-  scaleBtn: { paddingHorizontal: 18, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
-  scaleBtnFirst: { borderTopLeftRadius: radius.full, borderBottomLeftRadius: radius.full },
-  scaleBtnLast: { borderTopRightRadius: radius.full, borderBottomRightRadius: radius.full },
-  scaleBtnTxt: { fontSize: font.sm, fontWeight: '700' },
-  allIngBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: radius.md, alignItems: 'center', marginBottom: spacing.md, borderWidth: 1 },
-  allIngBtnTxt: { fontSize: font.sm, fontWeight: '600' },
-  allIngCard: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, marginBottom: spacing.lg },
-  allIngTitle: { fontSize: font.sm, fontWeight: '700', marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  removeImageTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
+  title: { fontFamily: type.serifBlack, fontSize: 30, lineHeight: 36, marginBottom: spacing.md },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: spacing.lg },
+  metaChip: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.sm, borderWidth: 1 },
+  metaChipTxt: { fontFamily: type.mono, fontSize: 9, letterSpacing: 0.5 },
+  scaleGroup: { flexDirection: 'row', borderRadius: radius.sm, borderWidth: 1.5, overflow: 'hidden' },
+  scaleBtn: { paddingHorizontal: 16, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  scaleBtnTxt: { fontFamily: type.monoBold, fontSize: 11 },
+  allIngBtn: { paddingVertical: 11, paddingHorizontal: 16, borderRadius: radius.md, alignItems: 'center', marginBottom: spacing.md, borderWidth: 1.5, borderStyle: 'dashed' },
+  allIngBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1.5 },
+  allIngCard: { borderRadius: radius.lg, borderWidth: 1.5, padding: spacing.md, marginBottom: spacing.lg },
+  allIngTitle: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2, marginBottom: spacing.sm },
   allIngSection: { marginBottom: spacing.sm },
-  allIngSectionName: { fontSize: font.xs, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' },
+  allIngSectionName: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1.5, marginBottom: 4, textTransform: 'uppercase' },
   sectionBlock: { marginBottom: spacing.lg },
-  sectionHeader: { fontSize: font.lg, fontWeight: '700', marginBottom: spacing.sm, paddingBottom: spacing.sm, borderBottomWidth: 2 },
-  sectionLabel: { fontSize: font.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.sm, marginTop: 4 },
+  sectionHeader: { fontFamily: type.serifBold, fontSize: 21, marginBottom: spacing.sm, paddingBottom: spacing.sm, borderBottomWidth: 2 },
+  sectionLabel: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: spacing.sm, marginTop: 4 },
   ingRow: { flexDirection: 'row', paddingVertical: 9, borderBottomWidth: 1, gap: 12 },
-  ingAmt: { fontSize: font.sm, minWidth: 100 },
-  ingName: { fontSize: font.sm, flex: 1 },
+  ingAmt: { fontFamily: type.mono, fontSize: 12, lineHeight: 19, minWidth: 100 },
+  ingName: { fontFamily: type.serif, fontSize: font.md, lineHeight: 20, flex: 1 },
   stepRow: { flexDirection: 'row', gap: 12, marginBottom: spacing.md },
-  stepNum: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  stepNumTxt: { fontSize: font.xs, fontWeight: '700' },
-  stepTxt: { fontSize: font.sm, flex: 1, lineHeight: 22 },
-  empty: { fontSize: font.sm, fontStyle: 'italic', marginBottom: spacing.md },
-  error: { fontSize: font.md, textAlign: 'center', marginTop: 40 },
-  editHeading: { fontSize: font.xl, fontWeight: '700', marginBottom: spacing.lg },
-  label: { fontSize: font.xs, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  subLabel: { fontSize: font.xs, fontWeight: '600', marginBottom: 6, marginTop: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  stepNum: { width: 26, height: 26, borderRadius: radius.sm, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  stepNumTxt: { fontFamily: type.monoBold, fontSize: 11 },
+  stepTxt: { fontFamily: type.serif, fontSize: font.md, flex: 1, lineHeight: 24 },
+  empty: { fontFamily: type.serifItalic, fontSize: font.sm, marginBottom: spacing.md },
+  error: { fontFamily: type.serifItalic, fontSize: font.md, textAlign: 'center', marginTop: 40 },
+  editHeading: { fontFamily: type.serifBlack, fontSize: 26, marginBottom: spacing.lg },
+  label: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
+  subLabel: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6, marginTop: spacing.sm },
   input: { borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: font.sm, marginBottom: 8 },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md },
-  tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full, borderWidth: 1.5 },
-  tagTxt: { fontSize: font.sm },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.md },
+  tag: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.md, borderWidth: 1.5 },
+  tagTxt: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase' },
   row: { flexDirection: 'row', gap: 12 },
   halfField: { flex: 1 },
   sectionToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.lg, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1 },
-  toggle: { width: 36, height: 20, borderRadius: 10 },
-  sectionToggleTxt: { fontSize: font.sm },
+  toggle: { width: 36, height: 20, borderRadius: radius.sm },
+  sectionToggleTxt: { fontFamily: type.serif, fontSize: font.sm },
   ingEditRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 4 },
   ingAmount: { width: 60, flex: 0 },
   ingUnit: { width: 55, flex: 0 },
@@ -617,16 +610,16 @@ const styles = StyleSheet.create({
   stepInput: { flex: 1 },
   remTxt: { fontSize: 16, paddingHorizontal: 4 },
   addRowBtn: { marginBottom: 4 },
-  addRowBtnTxt: { fontSize: font.sm },
-  sectionEditBlock: { borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1 },
+  addRowBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
+  sectionEditBlock: { borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1.5 },
   sectionEditHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   importResults: { borderWidth: 1.5, borderRadius: radius.md, marginBottom: 8, overflow: 'hidden' },
   importRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1 },
-  importName: { fontSize: font.sm, fontWeight: '600' },
-  importMeta: { fontSize: font.xs },
-  importAction: { fontSize: font.sm, fontWeight: '700' },
+  importName: { fontFamily: type.serifSemi, fontSize: font.sm },
+  importMeta: { fontFamily: type.mono, fontSize: 9, letterSpacing: 0.5 },
+  importAction: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
   addSectionBtn: { borderWidth: 1.5, borderRadius: radius.md, borderStyle: 'dashed', padding: 14, alignItems: 'center', marginTop: 4 },
-  addSectionBtnTxt: { fontWeight: '600' },
-  saveBtn: { borderRadius: radius.md, paddingHorizontal: 20, paddingVertical: 9 },
-  saveBtnTxt: { color: '#fff', fontWeight: '600', fontSize: font.sm },
+  addSectionBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
+  saveBtn: { borderRadius: radius.md, borderWidth: 1.5, paddingHorizontal: 20, paddingVertical: 10 },
+  saveBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
 });

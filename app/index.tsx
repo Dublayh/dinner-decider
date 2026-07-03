@@ -1,154 +1,67 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, StatusBar, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GroceryListModal from '@/components/GroceryListModal';
-// Skia only works on native - use null stubs on web
-const SkiaModule = Platform.OS !== 'web' ? require('@shopify/react-native-skia') : null;
-const Canvas = SkiaModule?.Canvas ?? (() => null);
-const Rect = SkiaModule?.Rect ?? (() => null);
-const Circle = SkiaModule?.Circle ?? (() => null);
-const LinearGradient = SkiaModule?.LinearGradient ?? (() => null);
-const RadialGradient = SkiaModule?.RadialGradient ?? (() => null);
-const vec = SkiaModule?.vec ?? (() => ({ x: 0, y: 0 }));
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow, pressedShadow } from '@/constants/theme';
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+const DAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function getDateline() {
+  const d = new Date();
+  return `${DAYS[d.getDay()]} · ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
-// ── Hero glow — soft radial, tuned per theme ─────────────────────────────────
-function HeroGlow({ width, isDark }: { width: number; isDark: boolean }) {
-  const cx = width / 2;
-  const r = width * 0.78;
-
-  const colors = isDark
-    ? ['rgba(212,130,48,0.30)', 'rgba(212,130,48,0.16)', 'rgba(212,130,48,0.06)', 'rgba(212,130,48,0.00)']
-    : ['rgba(193,122,60,0.13)', 'rgba(193,122,60,0.07)', 'rgba(193,122,60,0.02)', 'rgba(193,122,60,0.00)'];
-
-  return Platform.OS === 'web' ? (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute', top: -60, left: 0, width, height: width * 1.1,
-        // @ts-ignore - web only CSS property
-        background: isDark
-          ? `radial-gradient(ellipse at 50% 0%, rgba(212,130,48,0.28) 0%, rgba(212,130,48,0.12) 35%, rgba(212,130,48,0.04) 65%, transparent 100%)`
-          : `radial-gradient(ellipse at 50% 0%, rgba(193,122,60,0.13) 0%, rgba(193,122,60,0.06) 35%, rgba(193,122,60,0.02) 65%, transparent 100%)`,
-      }}
-    />
-  ) : (
-    <Canvas
-      style={{ position: 'absolute', top: -60, left: 0, width, height: width * 1.1 }}
-      pointerEvents="none"
-    >
-      <Circle cx={cx} cy={0} r={r}>
-        <RadialGradient
-          c={vec(cx, 0)}
-          r={r}
-          colors={colors}
-          positions={[0, 0.35, 0.65, 1]}
-        />
-      </Circle>
-    </Canvas>
-  );
-}
-
-// ── Card with Skia gradient background ───────────────────────────────────────
-interface GradCardProps {
-  gradColors: readonly [string, string, string];
-  glowColor: string;
-  onPress: () => void;
-  children: React.ReactNode;
-  borderColor?: string;
-}
-
-function GradCard({ gradColors, glowColor, onPress, children, borderColor }: GradCardProps) {
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  const { w, h } = size;
-
+// ── Square top-bar button, letterpress style ──────────────────────────────────
+function InkButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.cardOuter,
-        { borderColor: borderColor ?? 'transparent' },
-        Platform.OS === 'web' && {
-          // @ts-ignore - web only CSS property
-          background: `linear-gradient(135deg, ${gradColors[0]}, ${gradColors[1]} 55%, ${gradColors[2]})`,
-        },
-        pressed && styles.pressed,
-      ]}
       onPress={onPress}
-      onLayout={e => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+      style={({ pressed }) => [
+        styles.inkBtn,
+        { backgroundColor: colors.bgCard, borderColor: colors.ink },
+        pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 2),
+      ]}
     >
-      {w > 0 && h > 0 && Platform.OS !== 'web' && (
-        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Rect x={0} y={0} width={w} height={h}>
-            <LinearGradient
-              start={vec(0, 0)}
-              end={vec(w, h)}
-              colors={[gradColors[0], gradColors[1], gradColors[2]]}
-              positions={[0, 0.55, 1]}
-            />
-          </Rect>
-          <Circle cx={w * 1.05} cy={h / 2} r={h * 0.85}>
-            <RadialGradient
-              c={vec(w * 1.05, h / 2)}
-              r={h * 0.85}
-              colors={[glowColor, 'rgba(0,0,0,0)']}
-              positions={[0, 1]}
-            />
-          </Circle>
-        </Canvas>
-      )}
-      {children}
+      <Text style={{ fontSize: 15 }}>{label}</Text>
     </Pressable>
   );
 }
 
-// ── Card inner layout (shared) ────────────────────────────────────────────────
-function CardInner({ emoji, title, sub, iconBg, iconBorder, titleColor, subColor, arrowColor }: {
-  emoji: string; title: string; sub: string;
-  iconBg: string; iconBorder: string;
-  titleColor: string; subColor: string; arrowColor: string;
+// ── A "course" on the menu ────────────────────────────────────────────────────
+function CourseCard({ number, emoji, title, sub, onPress }: {
+  number: string; emoji: string; title: string; sub: string; onPress: () => void;
 }) {
+  const { colors } = useTheme();
   return (
-    <>
-      <View style={[styles.iconBox, { backgroundColor: iconBg, borderColor: iconBorder }]}>
-        <Text style={styles.iconEmoji}>{emoji}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.course,
+        { backgroundColor: colors.bgCard, borderColor: colors.ink },
+        pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 4),
+      ]}
+    >
+      <View style={styles.courseTopRow}>
+        <Text style={[styles.courseNo, { color: colors.primary }]}>No. {number}</Text>
+        <Text style={[styles.courseLeader, { color: colors.borderStrong }]} numberOfLines={1} ellipsizeMode="clip">
+          {'· '.repeat(60)}
+        </Text>
+        <Text style={styles.courseEmoji}>{emoji}</Text>
       </View>
-      <View style={styles.cardText}>
-        <Text style={[styles.cardTitle, { color: titleColor }]}>{title}</Text>
-        <Text style={[styles.cardSub, { color: subColor }]}>{sub}</Text>
-      </View>
-      <Text style={[styles.cardArrow, { color: arrowColor }]}>›</Text>
-    </>
+      <Text style={[styles.courseTitle, { color: colors.textPrimary }]}>{title}</Text>
+      <Text style={[styles.courseSub, { color: colors.textSecondary }]}>{sub}</Text>
+    </Pressable>
   );
 }
 
-// ── Card configs ──────────────────────────────────────────────────────────────
-const DARK = {
-  eatOut:  { grad: ['#3D2410', '#2C1A0A', '#1A1005'] as const, glow: 'rgba(212,130,48,0.22)',   icon: { bg: 'rgba(212,130,48,0.18)', border: 'rgba(212,130,48,0.30)' } },
-  eatIn:   { grad: ['#2B1F0C', '#1C1508', '#121005'] as const, glow: 'rgba(190,160,50,0.20)',   icon: { bg: 'rgba(180,150,60,0.18)', border: 'rgba(180,150,60,0.30)' } },
-  recipe:  { grad: ['#141A22', '#0E1218', '#090E14'] as const, glow: 'rgba(100,140,210,0.20)',  icon: { bg: 'rgba(100,140,210,0.18)', border: 'rgba(100,140,210,0.28)' }, border: 'rgba(100,140,200,0.18)' },
-};
-
-const LIGHT = {
-  eatOut:  { grad: ['#D4914F', '#C17A3C', '#AD6A2C'] as const, glow: 'rgba(255,210,160,0.30)', icon: { bg: 'rgba(255,255,255,0.28)', border: 'rgba(255,255,255,0.50)' } },
-  eatIn:   { grad: ['#A06535', '#8A5228', '#764520'] as const, glow: 'rgba(210,170,120,0.25)', icon: { bg: 'rgba(255,255,255,0.22)', border: 'rgba(255,255,255,0.40)' } },
-  recipe:  { grad: ['#FFFAF4', '#FFFFFF', '#FFF5EC'] as const, glow: 'rgba(193,122,60,0.07)',  icon: { bg: '#F5E6D3', border: '#E8DDD0' }, border: '#E8DDD0' },
-};
-
-// ── Home screen ───────────────────────────────────────────────────────────────
+// ── Home screen — the menu cover ──────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
   const { colors, isDark, toggle } = useTheme();
-  const { width } = useWindowDimensions();
-  const C = isDark ? DARK : LIGHT;
   const [showGrocery, setShowGrocery] = useState(false);
 
   return (
@@ -158,97 +71,59 @@ export default function HomeScreen() {
         backgroundColor={colors.bg}
       />
 
-      {/* Glow — both modes, different intensities */}
-      <HeroGlow width={width} isDark={isDark} />
-
       <SafeAreaView style={styles.safe}>
 
         {/* Top bar */}
         <View style={styles.topBar}>
-          <Text style={[styles.greetingLabel, { color: colors.heroLabel }]}>
-            {getGreeting()} ✦
-          </Text>
+          <Text style={[styles.dateline, { color: colors.textMuted }]}>{getDateline()}</Text>
           <View style={styles.topBtns}>
-            <Pressable
-              onPress={() => setShowGrocery(true)}
-              style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
-            >
-              <Text style={{ fontSize: 16 }}>🛒</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/meal-plan')}
-              style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
-            >
-              <Text style={{ fontSize: 16 }}>📅</Text>
-            </Pressable>
-            <Pressable
-              onPress={toggle}
-              style={[styles.themeBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
-            >
-              <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
-            </Pressable>
+            <InkButton label="🛒" onPress={() => setShowGrocery(true)} />
+            <InkButton label="📅" onPress={() => router.push('/meal-plan')} />
+            <InkButton label={isDark ? '☀️' : '🕯️'} onPress={toggle} />
           </View>
         </View>
 
-        {/* Hero */}
-        <View style={[styles.hero, { borderBottomColor: colors.heroDivider }]}>
-          <Text style={[styles.heroTitle, { color: colors.heroTitle }]}>
-            Let's{'\n'}
-            <Text style={[styles.heroTitleAccent, { color: colors.heroTitleAccent }]}>Eat.</Text>
+        {/* Double rule — like the head of a printed menu */}
+        <View style={[styles.ruleThick, { backgroundColor: colors.ink }]} />
+        <View style={[styles.ruleThin, { backgroundColor: colors.ink }]} />
+
+        {/* Masthead */}
+        <View style={styles.hero}>
+          <Text style={[styles.heroKicker, { color: colors.primary }]}>THE HOUSE MENU</Text>
+          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+            Let's{' '}
+            <Text style={[styles.heroTitleAccent, { color: colors.primary }]}>Eat.</Text>
           </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.heroSubtitle }]}>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             The eternal question, finally solved — together.
           </Text>
         </View>
 
-        {/* Section label */}
-        <Text style={[styles.sectionLabel, { color: colors.sectionLabel }]}>
-          What are we feeling?
-        </Text>
-
-        {/* Cards */}
+        {/* The courses — label travels with the cards so they read as one block */}
         <View style={styles.cards}>
-
-          <GradCard
-            gradColors={C.eatOut.grad}
-            glowColor={C.eatOut.glow}
+          <View style={styles.sectionRow}>
+            <View style={[styles.sectionRule, { backgroundColor: colors.line }]} />
+            <Text style={[styles.sectionLabel, { color: colors.sectionLabel }]}>TONIGHT'S OPTIONS</Text>
+            <View style={[styles.sectionRule, { backgroundColor: colors.line }]} />
+          </View>
+          <CourseCard
+            number="01" emoji="" title="Eat Out"
+            sub="Find a table somewhere near you"
             onPress={() => router.push('/eat-out/filters')}
-          >
-            <CardInner
-              emoji="🍽️" title="Eat Out" sub="Find restaurants near you"
-              iconBg={C.eatOut.icon.bg} iconBorder={C.eatOut.icon.border}
-              titleColor={colors.cardText} subColor={colors.cardTextSub} arrowColor={colors.cardArrow}
-            />
-          </GradCard>
-
-          <GradCard
-            gradColors={C.eatIn.grad}
-            glowColor={C.eatIn.glow}
+          />
+          <CourseCard
+            number="02" emoji="" title="Eat In"
+            sub="Spin the wheel, cook the winner"
             onPress={() => router.push('/eat-in/filters')}
-          >
-            <CardInner
-              emoji="🎲" title="Eat In" sub="Spin the wheel for a recipe"
-              iconBg={C.eatIn.icon.bg} iconBorder={C.eatIn.icon.border}
-              titleColor={colors.cardText} subColor={colors.cardTextSub} arrowColor={colors.cardArrow}
-            />
-          </GradCard>
-
-          <GradCard
-            gradColors={C.recipe.grad}
-            glowColor={C.recipe.glow}
+          />
+          <CourseCard
+            number="03" emoji="" title="Recipe Book"
+            sub="The dishes worth repeating"
             onPress={() => router.push('/recipes')}
-            borderColor={C.recipe.border}
-          >
-            <CardInner
-              emoji="📖" title="Recipe Book" sub="Your saved favourites"
-              iconBg={C.recipe.icon.bg} iconBorder={C.recipe.icon.border}
-              titleColor={isDark ? colors.cardRecipeText : colors.textPrimary}
-              subColor={isDark ? colors.cardRecipeTextSub : colors.textSecondary}
-              arrowColor={colors.cardRecipeArrow}
-            />
-          </GradCard>
-
+          />
         </View>
+
+        <Text style={[styles.footer, { color: colors.textMuted }]}>· BON APPÉTIT ·</Text>
       </SafeAreaView>
       <GroceryListModal visible={showGrocery} onClose={() => setShowGrocery(false)} />
     </View>
@@ -257,35 +132,34 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  safe: { flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  safe: { flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
 
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.sm },
-  topBtns: { flexDirection: 'row', gap: spacing.sm },
-  greetingLabel: { fontSize: font.xs, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase' },
-  themeBtn: { width: 38, height: 38, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.md },
+  dateline: { fontFamily: type.mono, fontSize: 10, letterSpacing: 1.5 },
+  topBtns: { flexDirection: 'row', gap: 10 },
+  inkBtn: { width: 38, height: 38, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 
-  hero: { paddingTop: spacing.sm, paddingBottom: spacing.lg, borderBottomWidth: 1, marginBottom: spacing.lg },
-  heroTitle: { fontSize: 52, fontWeight: '900', lineHeight: 54, letterSpacing: -1 },
-  heroTitleAccent: { fontStyle: 'italic' },
-  heroSubtitle: { marginTop: spacing.md, fontSize: font.sm, lineHeight: 20, maxWidth: 240 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: spacing.md, borderRadius: radius.full, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
-  pillDot: { width: 6, height: 6, borderRadius: 3 },
-  pillText: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
+  ruleThick: { height: 2 },
+  ruleThin: { height: 1, marginTop: 3 },
 
-  sectionLabel: { fontSize: font.xs, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', marginBottom: spacing.md },
+  hero: { paddingTop: spacing.xl, paddingBottom: spacing.md },
+  heroKicker: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 4, marginBottom: spacing.sm },
+  heroTitle: { fontFamily: type.serifBlack, fontSize: 54, lineHeight: 60 },
+  heroTitleAccent: { fontFamily: type.serifBlackItalic },
+  heroSubtitle: { marginTop: spacing.sm, fontFamily: type.serifItalic, fontSize: font.md, lineHeight: 22, maxWidth: 260 },
 
-  cards: { flex: 1, gap: spacing.sm, justifyContent: 'center' },
-  cardOuter: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    padding: spacing.md, borderRadius: radius.xl, borderWidth: 1,
-    flex: 1, overflow: 'hidden',
-  },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', gap: spacing.md , paddingBottom: spacing.md},
+  sectionRule: { flex: 1, height: 1 },
+  sectionLabel: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2.5 },
 
-  iconBox: { width: 52, height: 52, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, flexShrink: 0 },
-  iconEmoji: { fontSize: 24 },
-  cardText: { flex: 1 },
-  cardTitle: { fontSize: font.lg, fontWeight: '700', marginBottom: 3, letterSpacing: -0.3 },
-  cardSub: { fontSize: font.sm, lineHeight: 18 },
-  cardArrow: { fontSize: 22, fontWeight: '300', flexShrink: 0 },
+  cards: { flex: 1, gap: 18, justifyContent: 'center' },
+  course: { borderRadius: radius.lg, borderWidth: 1.5, paddingVertical: spacing.md, paddingHorizontal: spacing.md + 2 },
+  courseTopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 6 },
+  courseNo: { fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
+  courseLeader: { flex: 1, fontFamily: type.mono, fontSize: 10, lineHeight: 14, overflow: 'hidden' },
+  courseEmoji: { fontSize: 20 },
+  courseTitle: { fontFamily: type.serifBold, fontSize: 26, marginBottom: 3 },
+  courseSub: { fontFamily: type.serifItalic, fontSize: font.sm, lineHeight: 18 },
+
+  footer: { fontFamily: type.mono, fontSize: 9, letterSpacing: 3, textAlign: 'center', marginTop: spacing.md },
 });

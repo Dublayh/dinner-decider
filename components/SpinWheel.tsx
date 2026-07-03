@@ -9,7 +9,7 @@ import {
 } from 'react-native-reanimated';
 import type { WheelItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { wheelColors } from '@/constants/theme';
+import { wheelColors, radius as themeRadius, type, hardShadow, pressedShadow } from '@/constants/theme';
 
 const FONT_SIZE = 11;
 const LABEL_WIDTH = 100;
@@ -22,7 +22,7 @@ function makeParagraph(text: string) {
     { textAlign: TextAlign.Center },
     Skia.FontMgr.System(),
   ).pushStyle({
-    color: Skia.Color('white'),
+    color: Skia.Color('#F7EFDD'),
     fontSize: FONT_SIZE,
     fontFamilies: [fontFamily],
   }).addText(text).build();
@@ -63,8 +63,8 @@ export default function SpinWheel<T>({ items, onSpinEnd, size = 300 }: Props<T>)
   }, [items, rotation, handleSpinEnd]);
 
   if (!items.length) return (
-    <View style={[styles.empty, { width: size, height: size, backgroundColor: colors.bgMuted }]}>
-      <Text style={[styles.emptyTxt, { color: colors.textMuted }]}>No items yet</Text>
+    <View style={[styles.empty, { width: size, height: size, backgroundColor: colors.bgMuted, borderColor: colors.borderStrong }]}>
+      <Text style={[styles.emptyTxt, { color: colors.textMuted }]}>Nothing on the wheel yet</Text>
     </View>
   );
 
@@ -100,9 +100,12 @@ export default function SpinWheel<T>({ items, onSpinEnd, size = 300 }: Props<T>)
   const capPath = Skia.Path.Make();
   capPath.addCircle(R, R, 22);
 
+  const rimPath = Skia.Path.Make();
+  rimPath.addCircle(R, R, R - 1.5);
+
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.pointer, { left: R - 12, borderTopColor: colors.primary }]} />
+      <View style={[styles.pointer, { left: R - 12, borderTopColor: colors.ink }]} />
       <Canvas style={{ width: size, height: size }}>
         <Group transform={wheelTransform} origin={vec(R, R)}>
           {segments.map(({ path, color }, i) => <Path key={i} path={path} color={color} />)}
@@ -114,13 +117,20 @@ export default function SpinWheel<T>({ items, onSpinEnd, size = 300 }: Props<T>)
             </Group>
           ))}
         </Group>
-        <Path path={capPath} color="white" />
+        {/* Ink rim + paper centre cap */}
+        <Path path={rimPath} color={colors.ink} style="stroke" strokeWidth={3} />
+        <Path path={capPath} color={colors.bgCard} />
+        <Path path={capPath} color={colors.ink} style="stroke" strokeWidth={2.5} />
       </Canvas>
       <Pressable
-        style={[styles.spinBtn, { width: size * 0.6, backgroundColor: colors.primary }]}
+        style={({ pressed }) => [
+          styles.spinBtn,
+          { width: size * 0.6, backgroundColor: colors.primary, borderColor: colors.ink },
+          pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 3),
+        ]}
         onPress={spin}
       >
-        <Text style={styles.spinBtnTxt}>Spin!</Text>
+        <Text style={styles.spinBtnTxt}>SPIN THE WHEEL</Text>
       </Pressable>
     </View>
   );
@@ -134,8 +144,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 12, borderRightWidth: 12, borderTopWidth: 22,
     borderLeftColor: 'transparent', borderRightColor: 'transparent',
   },
-  empty: { alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  emptyTxt: { fontSize: 14 },
-  spinBtn: { marginTop: 20, borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
-  spinBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  empty: { alignItems: 'center', justifyContent: 'center', borderRadius: 999, borderWidth: 1.5, borderStyle: 'dashed' },
+  emptyTxt: { fontFamily: type.serifItalic, fontSize: 14 },
+  spinBtn: { marginTop: 22, borderRadius: themeRadius.md, borderWidth: 1.5, paddingVertical: 14, alignItems: 'center' },
+  spinBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 13, letterSpacing: 2.5 },
 });

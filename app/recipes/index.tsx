@@ -10,14 +10,15 @@ import { supabase } from '@/lib/supabase';
 import { fetchRecipes } from '@/lib/spoonacular';
 import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import type { Recipe, EatInFilters, EffortLevel } from '@/types';
-import { CUISINE_OPTIONS, EFFORT_OPTIONS } from '@/types';
+import { CUISINE_OPTIONS, EFFORT_OPTIONS, EFFORT_SHORT } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow, pressedShadow } from '@/constants/theme';
 
 const EFFORT_COLOR: Record<string, string> = {
-  quick: '#7A9E7E',
-  medium: '#C17A3C',
-  weekend: '#8A5228',
+  quick: '#6F7D46',
+  medium: '#C9962E',
+  long: '#7E5233',
+  weekend: '#9C3D2E',
 };
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -88,7 +89,7 @@ function BottomSheetModal({ visible, onClose, children, avoidKeyboard = false }:
 }
 
 const bsStyles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20,12,4,0.55)', zIndex: 1000 },
   sheetContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1001 },
 });
 
@@ -257,14 +258,22 @@ export default function RecipeBook() {
       <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
       {confirm && <AppConfirmDialog visible title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} confirmDestructive={confirm.destructive} onConfirm={confirm.onConfirm} onCancel={dismissConfirm} />}
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
-        <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
-          <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.backBtn,
+            { backgroundColor: colors.bgCard, borderColor: colors.ink },
+            pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 2),
+          ]}
+        >
+          <Text style={[styles.backTxt, { color: colors.textPrimary }]}>←</Text>
         </Pressable>
 
         <View style={styles.headingRow}>
           <View>
+            <Text style={[styles.kicker, { color: colors.primary }]}>THE ARCHIVE — No. 03</Text>
             <Text style={[styles.heading, { color: colors.textPrimary }]}>Recipe Book</Text>
-            <Text style={[styles.sub, { color: colors.textMuted }]}>{recipes.length} saved recipe{recipes.length !== 1 ? 's' : ''}</Text>
+            <Text style={[styles.sub, { color: colors.textMuted }]}>{recipes.length} SAVED RECIPE{recipes.length !== 1 ? 'S' : ''}</Text>
           </View>
 
           {/* ⋯ menu button */}
@@ -289,14 +298,14 @@ export default function RecipeBook() {
                 }
                 setShowMenu(v => !v);
               }}
-              style={[styles.menuBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}
+              style={[styles.menuBtn, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}
             >
-              <Text style={[styles.menuBtnTxt, { color: colors.textSecondary }]}>⋯</Text>
+              <Text style={[styles.menuBtnTxt, { color: colors.textPrimary }]}>⋯</Text>
             </Pressable>
           </View>
         </View>
 
-        <View style={[styles.searchBar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.bgCard, borderColor: colors.borderStrong }]}>
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search recipes..."
@@ -313,31 +322,42 @@ export default function RecipeBook() {
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/recipes/add')}>
-            <Text style={styles.addBtnTxt}>+ Add Recipe</Text>
+          <Pressable
+            style={({ pressed }: { pressed: boolean }) => [
+              styles.addBtn,
+              { backgroundColor: colors.primary, borderColor: colors.ink },
+              pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 3),
+            ]}
+            onPress={() => router.push('/recipes/add')}
+          >
+            <Text style={styles.addBtnTxt}>+ ADD RECIPE</Text>
           </Pressable>
           <Pressable
-            style={[styles.findBtn, { borderColor: colors.primary, opacity: finding ? 0.6 : 1 }]}
+            style={({ pressed }: { pressed: boolean }) => [
+              styles.findBtn,
+              { backgroundColor: colors.bgCard, borderColor: colors.ink, opacity: finding ? 0.6 : 1 },
+              pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 3),
+            ]}
             onPress={showSearch ? () => setShowSearch(false) : () => setFiltersExpanded(v => !v)}
             disabled={finding}
           >
             {finding
               ? <ActivityIndicator color={colors.primary} size="small" />
-              : <Text style={[styles.findBtnTxt, { color: colors.primary }]}>{showSearch ? 'Hide Results' : (activeSearch > 0 ? `Find Recipes (${activeSearch})` : 'Find Recipes')}</Text>
+              : <Text style={[styles.findBtnTxt, { color: colors.textPrimary }]}>{showSearch ? 'HIDE RESULTS' : (activeSearch > 0 ? `FIND RECIPES (${activeSearch})` : 'FIND RECIPES')}</Text>
             }
           </Pressable>
         </View>
 
         {!showSearch && filtersExpanded && (
-          <View style={[styles.filterCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.filterCard, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}>
             <Text style={[styles.filterCardTitle, { color: colors.textPrimary }]}>Search filters</Text>
             <Text style={[styles.filterLabel, { color: colors.sectionLabel }]}>Cuisine</Text>
             <View style={styles.tagRow}>
               {CUISINE_OPTIONS.map(c => {
                 const on = searchFilters.cuisines.includes(c);
                 return (
-                  <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => toggleSC(c)}>
-                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '600' : '500' }]}>{c}</Text>
+                  <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => toggleSC(c)}>
+                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{c}</Text>
                   </Pressable>
                 );
               })}
@@ -347,14 +367,22 @@ export default function RecipeBook() {
               {EFFORT_OPTIONS.map(({ label, value }) => {
                 const on = searchFilters.efforts.includes(value);
                 return (
-                  <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => toggleSE(value)}>
-                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '600' : '500' }]}>{label}</Text>
+                  <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => toggleSE(value)}>
+                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{label}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            <Pressable style={[styles.searchGoBtn, { backgroundColor: colors.primary, opacity: finding ? 0.6 : 1 }]} onPress={handleFindRecipes} disabled={finding}>
-              <Text style={styles.searchGoBtnTxt}>Search Spoonacular</Text>
+            <Pressable
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.searchGoBtn,
+                { backgroundColor: colors.primary, borderColor: colors.ink, opacity: finding ? 0.6 : 1 },
+                pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 3),
+              ]}
+              onPress={handleFindRecipes}
+              disabled={finding}
+            >
+              <Text style={styles.searchGoBtnTxt}>SEARCH SPOONACULAR</Text>
             </Pressable>
           </View>
         )}
@@ -365,13 +393,13 @@ export default function RecipeBook() {
               {searchResults.length > 0 ? `${searchResults.length} found — tap to save` : 'No new recipes found.'}
             </Text>
             {searchResults.map(r => (
-              <View key={r.id} style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+              <View key={r.id} style={[styles.resultRow, { borderBottomColor: colors.line }]}>
                 <View style={styles.resultInfo}>
                   <Text style={[styles.resultName, { color: colors.textPrimary }]}>{r.name}</Text>
-                  <Text style={[styles.resultMeta, { color: colors.textMuted }]}>{r.cuisine} · {r.readyInMinutes} min</Text>
+                  <Text style={[styles.resultMeta, { color: colors.textMuted }]}>{`${r.cuisine} · ${r.readyInMinutes} MIN`.toUpperCase()}</Text>
                 </View>
-                <Pressable style={[styles.saveResultBtn, { backgroundColor: colors.primaryLight }]} onPress={() => handleSaveRecipe(r)}>
-                  <Text style={[styles.saveResultBtnTxt, { color: colors.primaryDark }]}>Save</Text>
+                <Pressable style={[styles.saveResultBtn, { backgroundColor: colors.ink }]} onPress={() => handleSaveRecipe(r)}>
+                  <Text style={[styles.saveResultBtnTxt, { color: colors.stampText }]}>SAVE</Text>
                 </Pressable>
               </View>
             ))}
@@ -383,24 +411,24 @@ export default function RecipeBook() {
             {filteredRecipes.length !== recipes.length ? `${filteredRecipes.length} of ${recipes.length}` : 'Your Recipes'}
           </Text>
           <Pressable
-            style={[styles.filterToggleBtn, { borderColor: activeList > 0 ? colors.primary : colors.border, backgroundColor: activeList > 0 ? colors.primaryLight : 'transparent' }]}
+            style={[styles.filterToggleBtn, { borderColor: colors.ink, backgroundColor: activeList > 0 ? colors.ink : 'transparent' }]}
             onPress={() => setListFiltersExpanded(v => !v)}
           >
-            <Text style={[styles.filterToggleTxt, { color: activeList > 0 ? colors.primaryDark : colors.textSecondary }]}>
-              {listFiltersExpanded ? '▲' : '▼'} Filter{activeList > 0 ? ` (${activeList})` : ''}
+            <Text style={[styles.filterToggleTxt, { color: activeList > 0 ? colors.stampText : colors.textPrimary }]}>
+              {listFiltersExpanded ? '▲' : '▼'} FILTER{activeList > 0 ? ` (${activeList})` : ''}
             </Text>
           </Pressable>
         </View>
 
         {listFiltersExpanded && (
-          <View style={[styles.filterCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.filterCard, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}>
             <Text style={[styles.filterLabel, { color: colors.sectionLabel }]}>Cuisine</Text>
             <View style={styles.tagRow}>
               {CUISINE_OPTIONS.map(c => {
                 const on = listCuisines.includes(c);
                 return (
-                  <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => toggleLC(c)}>
-                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '600' : '500' }]}>{c}</Text>
+                  <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => toggleLC(c)}>
+                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{c}</Text>
                   </Pressable>
                 );
               })}
@@ -410,15 +438,15 @@ export default function RecipeBook() {
               {EFFORT_OPTIONS.map(({ label, value }) => {
                 const on = listEfforts.includes(value);
                 return (
-                  <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => toggleLE(value)}>
-                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '600' : '500' }]}>{label}</Text>
+                  <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => toggleLE(value)}>
+                    <Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{label}</Text>
                   </Pressable>
                 );
               })}
             </View>
             {activeList > 0 && (
               <Pressable onPress={() => { setListCuisines([]); setListEfforts([]); }}>
-                <Text style={[styles.clearTxt, { color: colors.primary }]}>Clear filters</Text>
+                <Text style={[styles.clearTxt, { color: colors.primary }]}>CLEAR FILTERS</Text>
               </Pressable>
             )}
           </View>
@@ -442,11 +470,14 @@ export default function RecipeBook() {
                     </Pressable>
                   )}
                 >
-                  <Pressable style={[styles.recipeCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: r.id } })}>
+                  <Pressable
+                    style={[styles.recipeCard, { backgroundColor: colors.bgCard, borderColor: colors.ink }, hardShadow(colors.shadow, 2)]}
+                    onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: r.id } })}
+                  >
                     <View style={[styles.recipeAccent, { backgroundColor: EFFORT_COLOR[r.effort] ?? colors.primary }]} />
                     <View style={styles.recipeInfo}>
                       <Text style={[styles.recipeName, { color: colors.textPrimary }]}>{r.name}</Text>
-                      <Text style={[styles.recipeMeta, { color: colors.textMuted }]}>{r.cuisine} · {r.effort === 'quick' ? '⚡ Quick' : r.effort === 'medium' ? '👨‍🍳 Medium' : '🌟 Weekend'}</Text>
+                      <Text style={[styles.recipeMeta, { color: colors.textMuted }]}>{`${r.cuisine} · ${EFFORT_SHORT[r.effort]}`.toUpperCase()}</Text>
                     </View>
                   </Pressable>
                 </Swipeable>
@@ -459,15 +490,15 @@ export default function RecipeBook() {
       {showMenu && (
         <Modal visible transparent animationType="none" onRequestClose={() => setShowMenu(false)}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowMenu(false)} />
-          <View style={[styles.dropdown, { backgroundColor: colors.bgCard, borderColor: colors.border, top: menuPos.top, right: menuPos.right }]}>
+          <View style={[styles.dropdown, { backgroundColor: colors.bgCard, borderColor: colors.ink, top: menuPos.top, right: menuPos.right }, hardShadow(colors.shadow, 3)]}>
             <Pressable
-              style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+              style={[styles.dropdownItem, { borderBottomColor: colors.line }]}
               onPress={() => { setShowMenu(false); handleExport(); }}
             >
               <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↑ Export</Text>
             </Pressable>
             <Pressable
-              style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+              style={[styles.dropdownItem, { borderBottomColor: colors.line }]}
               onPress={() => { setShowMenu(false); setShowImport(true); }}
             >
               <Text style={[styles.dropdownTxt, { color: colors.textPrimary }]}>↓ Import JSON</Text>
@@ -484,15 +515,15 @@ export default function RecipeBook() {
 
       {/* Import modal */}
       <BottomSheetModal visible={showImport} onClose={() => { setShowImport(false); setImportText(''); }} avoidKeyboard>
-        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
+        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, borderColor: colors.ink, paddingBottom: insets.bottom + 24 }]}>
 
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.line }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import Recipes</Text>
               <Text style={[styles.modalSub, { color: colors.textMuted }]}>Long-press the box below and tap Paste</Text>
             </View>
-            <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
-              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
+            <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalClose, { borderColor: colors.ink }]}>
+              <Text style={{ color: colors.textPrimary, fontSize: 15 }}>✕</Text>
             </Pressable>
           </View>
 
@@ -514,22 +545,22 @@ export default function RecipeBook() {
 
           {importText.trim().length > 0 && (
             <Text style={[styles.modalHint, {
-              color: (importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '#7A9E7E' : colors.danger,
+              color: (importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? colors.accent : colors.danger,
             }]}>
               {(importText.trim().startsWith('[') || importText.trim().startsWith('{')) ? '✓ Looks good' : '✗ Should start with [ or {'}
             </Text>
           )}
 
           <View style={styles.modalBtns}>
-            <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}>
-              <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+            <Pressable onPress={() => { setShowImport(false); setImportText(''); }} style={[styles.modalBtn, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}>
+              <Text style={[styles.modalBtnTxt, { color: colors.textPrimary }]}>CANCEL</Text>
             </Pressable>
             <Pressable
               onPress={handleImport}
               disabled={importing || !importText.trim()}
-              style={[styles.modalBtn, styles.modalBtnPrimary, { backgroundColor: colors.primary, opacity: (importing || !importText.trim()) ? 0.5 : 1 }]}
+              style={[styles.modalBtn, { backgroundColor: colors.primary, borderColor: colors.ink, opacity: (importing || !importText.trim()) ? 0.5 : 1 }]}
             >
-              {importing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>}
+              {importing ? <ActivityIndicator color="#FFF6E8" size="small" /> : <Text style={[styles.modalBtnTxt, { color: '#FFF6E8' }]}>IMPORT</Text>}
             </Pressable>
           </View>
 
@@ -538,15 +569,15 @@ export default function RecipeBook() {
 
       {/* Import from URL modal */}
       <BottomSheetModal visible={showUrlImport} onClose={() => { setShowUrlImport(false); setUrlInput(''); }} avoidKeyboard>
-        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, paddingBottom: insets.bottom + 24 }]}>
+        <View style={[styles.modalBox, { backgroundColor: colors.bgCard, borderColor: colors.ink, paddingBottom: insets.bottom + 24 }]}>
 
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.line }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import from URL</Text>
               <Text style={[styles.modalSub, { color: colors.textMuted }]}>Paste a link to any recipe page</Text>
             </View>
-            <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalClose, { backgroundColor: colors.bgMuted }]}>
-              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>✕</Text>
+            <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalClose, { borderColor: colors.ink }]}>
+              <Text style={{ color: colors.textPrimary, fontSize: 15 }}>✕</Text>
             </Pressable>
           </View>
 
@@ -573,15 +604,15 @@ export default function RecipeBook() {
           </Text>
 
           <View style={styles.modalBtns}>
-            <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}>
-              <Text style={[styles.modalBtnTxt, { color: colors.textSecondary }]}>Cancel</Text>
+            <Pressable onPress={() => { setShowUrlImport(false); setUrlInput(''); }} style={[styles.modalBtn, { borderColor: colors.ink, backgroundColor: colors.bgCard }]}>
+              <Text style={[styles.modalBtnTxt, { color: colors.textPrimary }]}>CANCEL</Text>
             </Pressable>
             <Pressable
               onPress={handleUrlImport}
               disabled={fetchingUrl || !urlInput.trim()}
-              style={[styles.modalBtn, styles.modalBtnPrimary, { backgroundColor: colors.primary, opacity: (fetchingUrl || !urlInput.trim()) ? 0.5 : 1 }]}
+              style={[styles.modalBtn, { backgroundColor: colors.primary, borderColor: colors.ink, opacity: (fetchingUrl || !urlInput.trim()) ? 0.5 : 1 }]}
             >
-              {fetchingUrl ? <ActivityIndicator color="#fff" size="small" /> : <Text style={[styles.modalBtnTxt, { color: '#fff' }]}>Import</Text>}
+              {fetchingUrl ? <ActivityIndicator color="#FFF6E8" size="small" /> : <Text style={[styles.modalBtnTxt, { color: '#FFF6E8' }]}>IMPORT</Text>}
             </Pressable>
           </View>
 
@@ -595,71 +626,69 @@ export default function RecipeBook() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 48 },
-  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
-  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
-  heading: { fontSize: font.xxl, fontWeight: '700', marginBottom: 4 },
-  sub: { fontSize: font.sm },
+  backBtn: { width: 38, height: 38, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  backTxt: { fontSize: 18, lineHeight: 21 },
+  kicker: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 3, marginBottom: 6 },
+  heading: { fontFamily: type.serifBlack, fontSize: 34, lineHeight: 40, marginBottom: 4 },
+  sub: { fontFamily: type.mono, fontSize: 10, letterSpacing: 1.5 },
   headingRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.lg },
-  menuBtn: { width: 34, height: 34, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  menuBtn: { width: 36, height: 36, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   menuBtnTxt: { fontSize: 16, fontWeight: '700' },
   dropdown: {
     position: 'absolute', borderRadius: radius.md,
-    borderWidth: 1, overflow: 'hidden', zIndex: 99, minWidth: 160,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12, shadowRadius: 8, elevation: 8,
+    borderWidth: 1.5, overflow: 'hidden', zIndex: 99, minWidth: 170,
   },
   dropdownItem: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
-  dropdownTxt: { fontSize: font.sm, fontWeight: '500' },
+  dropdownTxt: { fontFamily: type.serifSemi, fontSize: font.sm },
   searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, borderWidth: 1.5, marginBottom: spacing.md, paddingHorizontal: 12 },
-  searchInput: { flex: 1, paddingVertical: 11, fontSize: font.sm, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}) },
+  searchInput: { flex: 1, paddingVertical: 11, fontFamily: type.mono, fontSize: 13, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}) },
   searchClear: { padding: 4 },
   searchClearTxt: { fontSize: 14 },
-  actionRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  addBtn: { flex: 1, borderRadius: radius.md, padding: 13, alignItems: 'center' },
-  addBtnTxt: { color: '#fff', fontWeight: '600', fontSize: font.sm },
+  actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  addBtn: { flex: 1, borderRadius: radius.md, borderWidth: 1.5, padding: 13, alignItems: 'center' },
+  addBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
   findBtn: { flex: 1, borderWidth: 1.5, borderRadius: radius.md, padding: 13, alignItems: 'center' },
-  findBtnTxt: { fontWeight: '600', fontSize: font.sm },
-  filterCard: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, marginBottom: spacing.md },
-  filterCardTitle: { fontSize: font.sm, fontWeight: '600', marginBottom: spacing.sm },
-  filterLabel: { fontSize: font.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.xs },
+  findBtnTxt: { fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
+  filterCard: { borderRadius: radius.lg, borderWidth: 1.5, padding: spacing.md, marginBottom: spacing.md },
+  filterCardTitle: { fontFamily: type.serifBold, fontSize: font.md, marginBottom: spacing.sm },
+  filterLabel: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 2, marginBottom: spacing.sm },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.sm },
-  tag: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1.5 },
-  tagTxt: { fontSize: font.xs },
-  searchGoBtn: { borderRadius: radius.md, padding: 12, alignItems: 'center', marginTop: spacing.xs },
-  searchGoBtnTxt: { color: '#fff', fontWeight: '600', fontSize: font.sm },
+  tag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1.5 },
+  tagTxt: { fontSize: 9, letterSpacing: 0.5, textTransform: 'uppercase' },
+  searchGoBtn: { borderRadius: radius.md, borderWidth: 1.5, padding: 12, alignItems: 'center', marginTop: spacing.xs },
+  searchGoBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
   section: { marginBottom: spacing.md },
-  sectionTitle: { fontSize: font.sm, marginBottom: spacing.sm },
+  sectionTitle: { fontFamily: type.serifItalic, fontSize: font.sm, marginBottom: spacing.sm },
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, gap: spacing.sm },
   resultInfo: { flex: 1 },
-  resultName: { fontSize: font.md, fontWeight: '500', marginBottom: 2 },
-  resultMeta: { fontSize: font.xs },
+  resultName: { fontFamily: type.serifSemi, fontSize: font.md, marginBottom: 2 },
+  resultMeta: { fontFamily: type.mono, fontSize: 9, letterSpacing: 1 },
   saveResultBtn: { borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 8 },
-  saveResultBtnTxt: { fontWeight: '600', fontSize: font.sm },
+  saveResultBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
   listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm, marginTop: spacing.sm },
-  listTitle: { fontSize: font.md, fontWeight: '600' },
-  filterToggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1.5 },
-  filterToggleTxt: { fontSize: font.xs, fontWeight: '500' },
-  clearTxt: { fontSize: font.sm, textAlign: 'right', marginTop: 4 },
-  list: { gap: spacing.sm, marginTop: 4 },
-  recipeCard: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden', elevation: 1, backgroundColor: 'transparent' },
+  listTitle: { fontFamily: type.serifBold, fontSize: font.lg },
+  filterToggleBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1.5 },
+  filterToggleTxt: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1 },
+  clearTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1, textAlign: 'right', marginTop: 4 },
+  list: { gap: 12, marginTop: 4 },
+  recipeCard: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, borderWidth: 1.5, overflow: 'hidden' },
   recipeAccent: { width: 5, alignSelf: 'stretch' },
   recipeInfo: { flex: 1, paddingVertical: 14, paddingHorizontal: spacing.md },
-  recipeName: { fontSize: font.md, fontWeight: '600', marginBottom: 3 },
-  recipeMeta: { fontSize: font.xs },
-  deleteAction: { backgroundColor: '#E24B4A', justifyContent: 'center', alignItems: 'center', width: 80, borderRadius: radius.lg, marginLeft: 6 },
+  recipeName: { fontFamily: type.serifSemi, fontSize: 17, marginBottom: 4 },
+  recipeMeta: { fontFamily: type.mono, fontSize: 9, letterSpacing: 1 },
+  deleteAction: { backgroundColor: '#A93226', justifyContent: 'center', alignItems: 'center', width: 80, borderRadius: radius.md, marginLeft: 6 },
   deleteActionIcon: { fontSize: 18 },
-  deleteActionTxt: { fontSize: font.xs, fontWeight: '600', color: '#fff', marginTop: 2 },
-  empty: { fontSize: font.sm, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.xl },
+  deleteActionTxt: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1, color: '#FFF6E8', marginTop: 2 },
+  empty: { fontFamily: type.serifItalic, fontSize: font.sm, textAlign: 'center', marginTop: spacing.xl },
   // Modal
-  modalBox: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  modalBox: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderTopWidth: 2, borderLeftWidth: 2, borderRightWidth: 2 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderBottomWidth: 1 },
-  modalTitle: { fontSize: font.lg, fontWeight: '700', marginBottom: 2 },
-  modalSub: { fontSize: font.sm },
-  modalClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  modalInput: { marginHorizontal: spacing.lg, marginTop: spacing.md, borderWidth: 1.5, borderRadius: radius.lg, padding: spacing.md, height: 160, fontSize: font.sm, fontFamily: 'monospace' },
-  modalHint: { marginHorizontal: spacing.lg, marginTop: spacing.sm, fontSize: font.xs, fontWeight: '500' },
-  modalBtns: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.lg },
-  modalBtn: { flex: 1, borderRadius: radius.lg, padding: 14, alignItems: 'center', borderWidth: 1.5 },
-  modalBtnPrimary: { borderWidth: 0 },
-  modalBtnTxt: { fontSize: font.md, fontWeight: '600' },
+  modalTitle: { fontFamily: type.serifBold, fontSize: 20, marginBottom: 2 },
+  modalSub: { fontFamily: type.serifItalic, fontSize: font.sm },
+  modalClose: { width: 32, height: 32, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  modalInput: { marginHorizontal: spacing.lg, marginTop: spacing.md, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md, height: 160, fontSize: 12, fontFamily: type.mono },
+  modalHint: { marginHorizontal: spacing.lg, marginTop: spacing.sm, fontFamily: type.mono, fontSize: 10, letterSpacing: 0.5 },
+  modalBtns: { flexDirection: 'row', gap: spacing.md, marginHorizontal: spacing.lg, marginTop: spacing.lg },
+  modalBtn: { flex: 1, borderRadius: radius.md, padding: 14, alignItems: 'center', borderWidth: 1.5 },
+  modalBtnTxt: { fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
 });

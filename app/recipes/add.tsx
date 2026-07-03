@@ -7,7 +7,7 @@ import { addCustomRecipe, getCustomRecipes } from '@/lib/customRecipes';
 import { CUISINE_OPTIONS, EFFORT_OPTIONS, type EffortLevel, type Ingredient, type Recipe } from '@/types';
 import { useAppAlert, AppToast, AppConfirmDialog } from '@/components/AppDialog';
 import { useTheme } from '@/context/ThemeContext';
-import { radius, spacing, font } from '@/constants/theme';
+import { radius, spacing, font, type, hardShadow, pressedShadow } from '@/constants/theme';
 
 type EditSection = { name: string; ingredients: Ingredient[]; steps: string[] };
 
@@ -88,9 +88,17 @@ export default function AddRecipe() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
       <KeyboardScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" enableOnAndroid enableAutomaticScroll extraScrollHeight={120} keyboardOpeningTime={0}>
-        <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.themeBtnBg, borderColor: colors.themeBtnBorder }]}>
-          <Text style={[styles.backTxt, { color: colors.primary }]}>←</Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.backBtn,
+            { backgroundColor: colors.bgCard, borderColor: colors.ink },
+            pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 2),
+          ]}
+        >
+          <Text style={[styles.backTxt, { color: colors.textPrimary }]}>←</Text>
         </Pressable>
+        <Text style={[styles.kicker, { color: colors.primary }]}>NEW ENTRY</Text>
         <Text style={[styles.heading, { color: colors.textPrimary }]}>Add Recipe</Text>
 
         <Text style={[styles.label, { color: colors.sectionLabel }]}>Recipe name *</Text>
@@ -100,7 +108,7 @@ export default function AddRecipe() {
         <View style={styles.tagRow}>
           {CUISINE_OPTIONS.map(c => {
             const on = cuisine === c;
-            return <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => setCuisine(c)}><Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '700' : '500' }]}>{c}</Text></Pressable>;
+            return <Pressable key={c} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => setCuisine(c)}><Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{c}</Text></Pressable>;
           })}
         </View>
 
@@ -108,7 +116,7 @@ export default function AddRecipe() {
         <View style={styles.tagRow}>
           {EFFORT_OPTIONS.map(({ label, value }) => {
             const on = effort === value;
-            return <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.bg, borderColor: on ? colors.chipOnBorder : colors.border }]} onPress={() => setEffort(value)}><Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.textSecondary, fontWeight: on ? '700' : '500' }]}>{label}</Text></Pressable>;
+            return <Pressable key={value} style={[styles.tag, { backgroundColor: on ? colors.chipOnBg : colors.chipBg, borderColor: colors.chipBorder }]} onPress={() => setEffort(value)}><Text style={[styles.tagTxt, { color: on ? colors.chipOnText : colors.chipText, fontFamily: on ? type.monoBold : type.mono }]}>{label}</Text></Pressable>;
           })}
         </View>
 
@@ -142,7 +150,7 @@ export default function AddRecipe() {
           <Text style={[styles.label, { color: colors.sectionLabel, marginTop: spacing.md }]}>Directions</Text>
           {steps.map((step, i) => (
             <View key={i} style={styles.stepRow}>
-              <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{i + 1}</Text></View>
+              <View style={[styles.stepNum, { borderColor: colors.ink }]}><Text style={[styles.stepNumTxt, { color: colors.textPrimary }]}>{i + 1}</Text></View>
               <TextInput style={[inp, styles.stepInput, { marginBottom: 0 }]} value={step} onChangeText={v => updStep(i, v)} multiline placeholder={`Step ${i + 1}...`} placeholderTextColor={colors.textMuted} />
               {steps.length > 1 && <Pressable onPress={() => remStep(i)}><Text style={[styles.remTxt, { color: colors.textMuted }]}>✕</Text></Pressable>}
             </View>
@@ -182,7 +190,7 @@ export default function AddRecipe() {
               <Text style={[styles.subLabel, { color: colors.sectionLabel }]}>Directions</Text>
               {sec.steps.map((step, ii) => (
                 <View key={ii} style={styles.stepRow}>
-                  <View style={[styles.stepNum, { backgroundColor: colors.primaryLight }]}><Text style={[styles.stepNumTxt, { color: colors.primaryDark }]}>{ii + 1}</Text></View>
+                  <View style={[styles.stepNum, { borderColor: colors.ink }]}><Text style={[styles.stepNumTxt, { color: colors.textPrimary }]}>{ii + 1}</Text></View>
                   <TextInput style={[inp, styles.stepInput, { marginBottom: 0 }]} value={step} onChangeText={v => updSecStep(si, ii, v)} multiline placeholder={`Step ${ii + 1}...`} placeholderTextColor={colors.textMuted} />
                   {sec.steps.length > 1 && <Pressable onPress={() => remSecStep(si, ii)}><Text style={[styles.remTxt, { color: colors.textMuted }]}>✕</Text></Pressable>}
                 </View>
@@ -195,8 +203,16 @@ export default function AddRecipe() {
           </Pressable>
         </>}
 
-        <Pressable style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnTxt}>Save Recipe</Text>}
+        <Pressable
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.saveBtn,
+            { backgroundColor: colors.primary, borderColor: colors.ink, opacity: saving ? 0.6 : 1 },
+            pressed ? pressedShadow(colors.shadow) : hardShadow(colors.shadow, 3),
+          ]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? <ActivityIndicator color="#FFF6E8" /> : <Text style={styles.saveBtnTxt}>SAVE RECIPE</Text>}
         </Pressable>
       </KeyboardScrollView>
     </SafeAreaView>
@@ -206,40 +222,41 @@ export default function AddRecipe() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 60 },
-  backBtn: { width: 36, height: 36, borderRadius: radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
-  backTxt: { fontSize: 18, fontWeight: '600', lineHeight: 20 },
-  heading: { fontSize: 28, fontWeight: '700', marginBottom: spacing.lg },
-  label: { fontSize: font.xs, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  subLabel: { fontSize: font.xs, fontWeight: '600', marginBottom: 6, marginTop: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  backBtn: { width: 38, height: 38, borderRadius: radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  backTxt: { fontSize: 18, lineHeight: 21 },
+  kicker: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 3, marginBottom: 6 },
+  heading: { fontFamily: type.serifBlack, fontSize: 30, marginBottom: spacing.lg },
+  label: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
+  subLabel: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6, marginTop: spacing.sm },
   input: { borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: font.sm, marginBottom: 8 },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md },
-  tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full, borderWidth: 1.5 },
-  tagTxt: { fontSize: font.sm },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.md },
+  tag: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.md, borderWidth: 1.5 },
+  tagTxt: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase' },
   row: { flexDirection: 'row', gap: 12 },
   halfField: { flex: 1 },
   sectionToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.lg, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1 },
-  toggle: { width: 36, height: 20, borderRadius: 10 },
-  sectionToggleTxt: { fontSize: font.sm },
+  toggle: { width: 36, height: 20, borderRadius: radius.sm },
+  sectionToggleTxt: { fontFamily: type.serif, fontSize: font.sm },
   ingRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 4 },
   ingAmount: { width: 60, flex: 0 },
   ingUnit: { width: 55, flex: 0 },
   ingName: { flex: 1 },
   stepRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginBottom: 8 },
-  stepNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  stepNumTxt: { fontSize: font.xs, fontWeight: '700' },
+  stepNum: { width: 24, height: 24, borderRadius: radius.sm, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  stepNumTxt: { fontFamily: type.monoBold, fontSize: 10 },
   stepInput: { flex: 1 },
   remTxt: { fontSize: 16, paddingHorizontal: 4 },
   addRowBtn: { marginBottom: 4 },
-  addRowBtnTxt: { fontSize: font.sm },
+  addRowBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
   sectionBlock: { borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1.5 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   importResults: { borderWidth: 1.5, borderRadius: radius.md, marginBottom: 8, overflow: 'hidden' },
   importRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1 },
-  importName: { fontSize: font.sm, fontWeight: '600' },
-  importMeta: { fontSize: font.xs },
-  importAction: { fontSize: font.sm, fontWeight: '700' },
+  importName: { fontFamily: type.serifSemi, fontSize: font.sm },
+  importMeta: { fontFamily: type.mono, fontSize: 9, letterSpacing: 0.5 },
+  importAction: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
   addSectionBtn: { borderWidth: 1.5, borderRadius: radius.md, borderStyle: 'dashed', padding: 14, alignItems: 'center', marginTop: 4 },
-  addSectionBtnTxt: { fontWeight: '600' },
-  saveBtn: { borderRadius: radius.lg, padding: 16, alignItems: 'center', marginTop: spacing.lg },
-  saveBtnTxt: { color: '#fff', fontSize: font.md, fontWeight: '700' },
+  addSectionBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1 },
+  saveBtn: { borderRadius: radius.md, borderWidth: 1.5, padding: 16, alignItems: 'center', marginTop: spacing.lg },
+  saveBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 12, letterSpacing: 2 },
 });
