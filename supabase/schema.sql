@@ -19,7 +19,7 @@ create table if not exists public.custom_recipes (
   name             text not null,
   cuisine          text not null default 'Custom',
   effort           text not null default 'medium'
-                     check (effort in ('quick', 'medium', 'weekend')),
+                     check (effort in ('quick', 'medium', 'long', 'weekend')),
   ready_in_minutes integer not null default 0,
   servings         integer not null default 2,
   ingredients      jsonb not null default '[]',

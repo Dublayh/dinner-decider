@@ -21,11 +21,24 @@ const FONTS = {
 
 // Remove browser focus outlines on web + selection colour to match the ink
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  // Read the saved theme synchronously so the page background is painted in the
+  // right paper colour before first render — no flash of light before a saved
+  // dark theme loads. (Kept in sync with ThemeContext / constants/theme.ts.)
+  let initialBg = '#F4ECDD';
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark') {
+      initialBg = '#171009';
+    }
+  } catch {}
+
   const style = document.createElement('style');
   style.textContent = `
     input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }
     ::selection { background: #BC5B27; color: #F9F2E2; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    /* Paper background behind the app + no rubber-band chaining, so overscroll
+       on the PWA never flashes white. ThemeContext recolors this on toggle. */
+    html, body { background-color: ${initialBg}; overscroll-behavior: none; }
   `;
   document.head.appendChild(style);
 }
