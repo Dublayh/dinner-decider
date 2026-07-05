@@ -30,6 +30,9 @@ Both platforms share the same Supabase backend so all data syncs in real time.
   - `react-native-webview` — hosts Leaflet map on native
   - `expo-image-picker` — photo upload for recipes
   - `expo-location` — for restaurant search
+  - `expo-keep-awake` — keeps the screen on in Cook Mode (native + web wake lock)
+  - `expo-audio` — plays the timer-done alarm in Cook Mode (bundled `assets/sounds/timer-done.wav`)
+  - `expo-haptics` — buzz on timer-done / timer-start (native only, no-ops on web)
 - **Pure JS libs**:
   - `react-native-keyboard-aware-scroll-view` — cross-platform keyboard handling
 - **Web-specific**:
@@ -116,13 +119,16 @@ app/
 │   ├── filters.tsx          # Choose cuisine/vibes/radius → wheel OR map (two buttons)
 │   ├── wheel.tsx            # Spin wheel for restaurants
 │   └── map.tsx              # Map view of restaurants (uses RestaurantMap platform-switch)
-└── recipes/
-    ├── index.tsx            # Recipe book (list, search, filter, import JSON, import URL, export)
-    ├── [id].tsx             # Recipe detail view (with edit mode, photo upload, scaling)
-    └── add.tsx              # Add new recipe form
+├── recipes/
+│   ├── index.tsx            # Recipe book (list, search, filter, import JSON, import URL, export)
+│   ├── [id].tsx             # Recipe detail view (edit mode, photo upload, scaling, "START COOKING" button)
+│   └── add.tsx              # Add new recipe form
+└── cook/
+    └── [id].tsx             # Cook Mode — full-screen step-by-step, keep-awake, ingredient drawer, inline timers
 
 components/
 ├── AppDialog.tsx            # Shared: useAppAlert hook + AppToast + AppConfirmDialog components
+├── BottomSheet.tsx          # Reusable bottom sheet — overlay fades in place while sheet slides up (avoids Modal animationType="slide" moving the backdrop). Drag-to-dismiss handle. Used by Cook Mode ingredient drawer.
 ├── GroceryListModal.tsx     # Shared grocery list (used from home 🛒 + meal plan) — store grouping/filter/tags
 ├── StorePickerSheet.tsx     # Modal to assign an item to a store / create / delete stores
 ├── SpinWheel.tsx            # Skia wheel (native)
@@ -285,6 +291,7 @@ The workflow is one of the more delicate parts of the project. Here's what it do
 - **Two button behaviours (intentional):** The **meal-plan card 🛒 is a toggle** (`toggleEntryOnList`) — tap adds when off (dot lights + amber-tinted button), tap removes when on; each direction shows an Undo toast. The **recipe-detail 🛒 is add/re-sync** (not a toggle) because that screen has the 1x/2x/3x scale — re-tapping refreshes amounts at the current scale rather than removing. Undo there removes.
 - **Recipe search in the shopping list** — The `GroceryListModal` "Add an item..." field doubles as a recipe search: typing ≥2 chars matches recipe names (loads `getCustomRecipes()` once on open) and shows up to 5 results, each with its ingredient count (`recipeIngredientCount`). Tapping a result runs `addRecipeToGroceryList` (re-sync semantics) and silently refetches. Results already on the list show `✓ on list` instead of `+ N`. The `+` button / Enter still adds the typed text as a manual item, so the field serves both roles. The 🛒 in the meal-plan top bar now just opens the shopping list modal.
 - **Real-time grocery list**: Subscribes to `postgres_changes` on `grocery_list` when modal is open. INSERT/UPDATE/DELETE events update local state. Also subscribes to `stores` changes to keep both users' store lists in sync.
+- **Cook Mode** (`app/cook/[id].tsx`): full-screen step-by-step cooking view, launched from the "START COOKING" button on recipe detail (`router.push('/cook/{id}?scale={scale}')` — carries the 1×/2×/3× scale). One step at a time (serif), progress bar, Prev/Next buttons + horizontal swipe (PanResponder guarded to horizontal-dominant gestures so vertical scroll still works). Sections are flattened into a single step sequence with the section name shown above each step. `useKeepAwake()` holds the screen on. A 🧺 ingredient-peek drawer (Modal) lists all ingredients scaled to the carried batch size. **Inline timers**: `parseDurations()` regex-extracts durations ("20 minutes", "1 hr", "45 sec") from step text into tappable "START N MIN" chips; each starts an independent countdown shown in a horizontal tray (tap a chip to dismiss). On finish it plays `assets/sounds/timer-done.wav` via expo-audio (a synthesized 2-tone chime) + a native success haptic. A single 1s `setInterval` ticks all timers; the finish side-effect is deferred out of the state updater via `setTimeout(fireAlarm, 0)`. **Web audio caveat**: the alarm is programmatic (fires after the tap that started the timer), so it relies on the page already being unlocked by that earlier gesture — normally fine within a session.
 - **Store assignment (shopping list)**: Each item can be tagged with a store. Tapping an item's store tag opens `StorePickerSheet` to pick/create/remove a store. Assigning teaches `ingredient_stores` (auto-learn), so re-adding that ingredient later auto-assigns it — including ingredients pulled from recipes (all inserts flow through `addGroceryItem`/`addGroceryItems`, which resolve the remembered store). The list groups under store sub-headers with a horizontal store filter bar (ALL / each store / UNASSIGNED). **Progressive disclosure**: the grouping headers + filter bar stay hidden until at least one store exists or an item has a store, so existing users see the old flat receipt until they opt in. Combining (name+unit) happens *within* each store group. Deleting a store detaches its items (sets `store=null`) and forgets its learned mappings.
 - **Dropdown menu positioning**: The ⋯ menu in recipe book uses `getBoundingClientRect()` on web / `measure()` on native to position the popup relative to the button's actual on-screen location.
 - **Modal z-index on web**: Some parts of React Native Web don't create proper stacking contexts. Solved by rendering the dropdown menu inside its own `<Modal>` (not just an absolutely-positioned View).
@@ -316,6 +323,8 @@ eas build --platform android --profile development
 ```
 
 Uses EAS since local Android SDK setup on Windows is painful. Development profile so it's a dev client, not a release build.
+
+> ⚠️ **A fresh dev-client build is required whenever native modules change.** Cook Mode added `expo-keep-awake`, `expo-audio`, `expo-haptics` (all native) — the existing dev client must be rebuilt + reinstalled before Cook Mode works on Android. The PWA needs no rebuild (just push to master); these modules have web implementations / graceful no-ops.
 
 ---
 

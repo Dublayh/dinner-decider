@@ -325,6 +325,15 @@ export default function RecipeDetail() {
             </View>
           </View>
 
+          {(recipe.steps.length > 0 || (recipe.sections ?? []).some(s => s.steps.length > 0)) && (
+            <Pressable
+              onPress={() => router.push(`/cook/${id}?scale=${scale}`)}
+              style={[styles.cookBtn, { backgroundColor: colors.primary, borderColor: colors.ink }, hardShadow(colors.shadow, 3)]}
+            >
+              <Text style={styles.cookBtnTxt}>▶  START COOKING</Text>
+            </Pressable>
+          )}
+
           {hasSections && (
             <Pressable style={[styles.allIngBtn, { borderColor: colors.ink }]} onPress={() => setShowAllIngredients(v => !v)}>
               <Text style={[styles.allIngBtnTxt, { color: colors.textPrimary }]}>{showAllIngredients ? '▲ HIDE SHOPPING LIST' : '▼ SHOW ALL INGREDIENTS'}</Text>
@@ -572,6 +581,8 @@ const styles = StyleSheet.create({
   scaleGroup: { flexDirection: 'row', borderRadius: radius.sm, borderWidth: 1.5, overflow: 'hidden' },
   scaleBtn: { paddingHorizontal: 16, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   scaleBtnTxt: { fontFamily: type.monoBold, fontSize: 11 },
+  cookBtn: { alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.sm, borderWidth: 1.5, marginBottom: spacing.lg },
+  cookBtnTxt: { color: '#FFF6E8', fontFamily: type.monoBold, fontSize: 11, letterSpacing: 1.5 },
   allIngBtn: { paddingVertical: 11, paddingHorizontal: 16, borderRadius: radius.md, alignItems: 'center', marginBottom: spacing.md, borderWidth: 1.5, borderStyle: 'dashed' },
   allIngBtnTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 1.5 },
   allIngCard: { borderRadius: radius.lg, borderWidth: 1.5, padding: spacing.md, marginBottom: spacing.lg },
