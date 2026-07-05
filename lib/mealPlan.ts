@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 export interface MealPlanEntry {
   id: string;
   plan_date: string; // 'YYYY-MM-DD'
-  type: 'recipe' | 'leftovers' | 'empty';
+  type: 'recipe' | 'leftovers' | 'eat_out' | 'empty';
   recipe_id?: string;
   recipe_name?: string;
   note?: string;
@@ -17,7 +17,7 @@ export async function getMealPlanForRange(start: string, end: string): Promise<M
     .lte('plan_date', end)
     .order('plan_date');
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as MealPlanEntry[];
 }
 
 export async function setMealPlanEntry(
@@ -36,7 +36,7 @@ export async function getShoppingChecks(weekStart: string): Promise<string[]> {
     .select('checked_keys')
     .eq('week_start', weekStart)
     .single();
-  return data?.checked_keys ?? [];
+  return (data?.checked_keys ?? []) as string[];
 }
 
 export async function saveShoppingChecks(weekStart: string, keys: string[]): Promise<void> {

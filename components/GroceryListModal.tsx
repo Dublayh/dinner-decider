@@ -13,8 +13,12 @@ import { parseAmount, formatAmount } from '@/lib/amountUtils';
 import {
   getGroceryItems, addGroceryItem, toggleGroceryItem,
   deleteCheckedItems, clearAllItems, addRecipeToGroceryList,
+  setItemStore, normalizeIngredientName,
 } from '@/lib/groceryList';
 import type { GroceryItem } from '@/lib/groceryList';
+import { getStores, addStore, deleteStore } from '@/lib/stores';
+import type { Store } from '@/lib/stores';
+import StorePickerSheet from '@/components/StorePickerSheet';
 import { getCustomRecipes } from '@/lib/customRecipes';
 import type { Recipe } from '@/types';
 
@@ -42,8 +46,10 @@ interface CombinedItem {
   sources: string[];
 }
 
-function normalizeIngredientName(name: string): string {
-  return name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/(?<=[a-z])s\b/, '');
+interface StoreGroup {
+  store: string | null;   // null = unassigned
+  label: string;
+  items: CombinedItem[];
 }
 
 function combineItems(items: GroceryItem[]): CombinedItem[] {
@@ -81,6 +87,33 @@ function combineItems(items: GroceryItem[]): CombinedItem[] {
   return Array.from(map.values());
 }
 
+// Bucket raw items by store, combine within each bucket, and order the buckets:
+// known stores in their configured order, then any orphan stores, then unassigned last.
+// Within a bucket, unchecked items sort above checked ones (matches the flat list).
+function buildStoreGroups(items: GroceryItem[], stores: Store[]): StoreGroup[] {
+  const byStore = new Map<string, GroceryItem[]>();
+  for (const item of items) {
+    const key = item.store || '';
+    (byStore.get(key) ?? byStore.set(key, []).get(key)!).push(item);
+  }
+
+  const orderedKeys: string[] = [];
+  for (const s of stores) if (byStore.has(s.name)) orderedKeys.push(s.name);
+  for (const key of byStore.keys()) {
+    if (key !== '' && !orderedKeys.includes(key)) orderedKeys.push(key); // orphan store names
+  }
+  if (byStore.has('')) orderedKeys.push('');
+
+  return orderedKeys.map(key => {
+    const combined = combineItems(byStore.get(key)!);
+    return {
+      store: key || null,
+      label: key || 'UNASSIGNED',
+      items: [...combined.filter(i => !i.checked), ...combined.filter(i => i.checked)],
+    };
+  });
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -115,6 +148,9 @@ export default function GroceryListModal({ visible, onClose }: Props) {
   const [adding, setAdding] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storeFilter, setStoreFilter] = useState<string | null>(null); // null = ALL, '' = unassigned, else store name
+  const [pickerFor, setPickerFor] = useState<CombinedItem | null>(null);
 
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const sheetY = useRef(new Animated.Value(winHeight)).current;
@@ -147,11 +183,14 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     })
   ).current;
 
-  const combined = combineItems(items);
-  const sortedCombined = [
-    ...combined.filter(i => !i.checked),
-    ...combined.filter(i => i.checked),
-  ];
+  const allGroups = buildStoreGroups(items, stores);
+  const totalCount = allGroups.reduce((n, g) => n + g.items.length, 0);
+  // The store feature stays invisible until there's at least one store or a placed item.
+  const storeFeatureActive = stores.length > 0 || items.some(i => i.store);
+  const hasUnassigned = allGroups.some(g => g.store === null && g.items.length > 0);
+  const visibleGroups = storeFilter === null
+    ? allGroups
+    : allGroups.filter(g => (storeFilter === '' ? g.store === null : g.store === storeFilter));
 
   // Recipe search: match the typed text against recipe names
   const query = newItemText.trim().toLowerCase();
@@ -164,6 +203,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     if (visible) {
       setMounted(true);
       load();
+      getStores().then(setStores).catch(() => {});
       if (recipes.length === 0) getCustomRecipes().then(setRecipes).catch(() => {});
       Animated.parallel([
         Animated.timing(overlayOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
@@ -195,6 +235,10 @@ export default function GroceryListModal({ visible, onClose }: Props) {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'grocery_list' }, payload => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setItems(prev => prev.filter(i => i.id !== payload.old.id));
+      })
+      // Keep both users' store lists in sync as either edits them
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores' }, () => {
+        getStores().then(setStores).catch(() => {});
       })
       .subscribe();
 
@@ -285,11 +329,52 @@ export default function GroceryListModal({ visible, onClose }: Props) {
     }
   }
 
+  // Assign (or clear) a combined item's store; teaches the memory for next time.
+  async function handleAssignStore(item: CombinedItem, store: string | null) {
+    setPickerFor(null);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setItems(prev => prev.map(i => item.ids.includes(i.id) ? { ...i, store } : i));
+    try {
+      await setItemStore(item.ids, item.text, store);
+    } catch (e: any) {
+      getGroceryItems().then(setItems).catch(() => {});
+      showToast(e.message, 'error');
+    }
+  }
+
+  async function handleCreateStore(name: string): Promise<Store> {
+    const created = await addStore(name);
+    setStores(prev => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
+    return created;
+  }
+
+  async function handleDeleteStore(store: Store) {
+    try {
+      await deleteStore(store);
+      setStores(prev => prev.filter(s => s.id !== store.id));
+      setItems(prev => prev.map(i => i.store === store.name ? { ...i, store: null } : i));
+      if (storeFilter === store.name) setStoreFilter(null);
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  }
+
   if (!mounted) return null;
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <AppToast message={toast?.msg ?? ''} type={toast?.type ?? 'info'} visible={!!toast} />
+
+      <StorePickerSheet
+        visible={!!pickerFor}
+        stores={stores}
+        current={pickerFor ? (items.find(i => pickerFor.ids.includes(i.id))?.store ?? null) : null}
+        itemLabel={pickerFor?.text}
+        onSelect={store => pickerFor && handleAssignStore(pickerFor, store)}
+        onCreate={handleCreateStore}
+        onDeleteStore={handleDeleteStore}
+        onClose={() => setPickerFor(null)}
+      />
 
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -308,7 +393,7 @@ export default function GroceryListModal({ visible, onClose }: Props) {
             <View style={styles.header}>
               <Text style={[styles.title, { color: colors.textPrimary }]}>SHOPPING LIST</Text>
               <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-                ITEMS — {sortedCombined.length}
+                ITEMS — {totalCount}
               </Text>
             </View>
             <Pressable
@@ -392,50 +477,105 @@ export default function GroceryListModal({ visible, onClose }: Props) {
             </View>
           )}
 
+          {storeFeatureActive && (
+            <View style={styles.filterBarWrap}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterBar}
+                keyboardShouldPersistTaps="handled"
+              >
+                {[
+                  { key: null as string | null, label: 'ALL' },
+                  ...stores.map(s => ({ key: s.name as string | null, label: s.name.toUpperCase() })),
+                  ...(hasUnassigned ? [{ key: '' as string | null, label: 'UNASSIGNED' }] : []),
+                ].map(chip => {
+                  const on = storeFilter === chip.key;
+                  return (
+                    <Pressable
+                      key={chip.label}
+                      onPress={() => setStoreFilter(chip.key)}
+                      style={[styles.filterChip, { borderColor: colors.ink, backgroundColor: on ? colors.ink : colors.bgCard }]}
+                    >
+                      <Text style={[styles.filterChipTxt, { color: on ? colors.stampText : colors.textSecondary }]}>{chip.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
             {loading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
-            ) : sortedCombined.length === 0 ? (
+            ) : totalCount === 0 ? (
               <Text style={[styles.empty, { color: colors.textMuted }]}>
                 Nothing on the list.{'\n'}Add an item above, or type a recipe name to ring up its ingredients.
               </Text>
             ) : (
               <>
-                {sortedCombined.map(item => (
-                  <Pressable
-                    key={item.ids.join('-')}
-                    style={[styles.item, { borderBottomColor: colors.line }]}
-                    onPress={() => handleToggle(item)}
-                  >
-                    <View style={[
-                      styles.checkbox,
-                      {
-                        borderColor: colors.ink,
-                        backgroundColor: item.checked ? colors.ink : 'transparent',
-                      },
-                    ]}>
-                      {item.checked && <Text style={[styles.checkmark, { color: colors.stampText }]}>✓</Text>}
-                    </View>
-                    <View style={styles.itemMain}>
-                      <Text style={[
-                        styles.itemName,
-                        {
-                          color: item.checked ? colors.textMuted : colors.textPrimary,
-                          textDecorationLine: item.checked ? 'line-through' : 'none',
-                        },
-                      ]}>
-                        {item.text}
-                      </Text>
-                      {item.sources.length > 0 && (
-                        <Text style={[styles.itemSources, { color: colors.textMuted }]} numberOfLines={1}>
-                          {item.sources.join(' · ').toUpperCase()}
+                {visibleGroups.map(group => (
+                  <View key={group.store ?? '__unassigned'}>
+                    {storeFeatureActive && (
+                      <View style={styles.groupHeader}>
+                        <Text style={[styles.groupHeaderTxt, { color: group.store ? colors.primary : colors.textMuted }]}>
+                          {group.label.toUpperCase()}
                         </Text>
-                      )}
-                    </View>
-                    <Text style={[styles.itemAmt, { color: item.checked ? colors.textMuted : colors.textSecondary }]}>
-                      {item.amount}{item.unit ? ` ${item.unit}` : ''}
-                    </Text>
-                  </Pressable>
+                        <Text style={[styles.groupHeaderCount, { color: colors.textMuted }]}>
+                          {group.items.length}
+                        </Text>
+                      </View>
+                    )}
+                    {group.items.map(item => (
+                      <Pressable
+                        key={item.ids.join('-')}
+                        style={[styles.item, { borderBottomColor: colors.line }]}
+                        onPress={() => handleToggle(item)}
+                      >
+                        <View style={[
+                          styles.checkbox,
+                          {
+                            borderColor: colors.ink,
+                            backgroundColor: item.checked ? colors.ink : 'transparent',
+                          },
+                        ]}>
+                          {item.checked && <Text style={[styles.checkmark, { color: colors.stampText }]}>✓</Text>}
+                        </View>
+                        <View style={styles.itemMain}>
+                          <Text style={[
+                            styles.itemName,
+                            {
+                              color: item.checked ? colors.textMuted : colors.textPrimary,
+                              textDecorationLine: item.checked ? 'line-through' : 'none',
+                            },
+                          ]}>
+                            {item.text}
+                          </Text>
+                          <View style={styles.itemMeta}>
+                            {item.sources.length > 0 && (
+                              <Text style={[styles.itemSources, { color: colors.textMuted }]} numberOfLines={1}>
+                                {item.sources.join(' · ').toUpperCase()}
+                              </Text>
+                            )}
+                            <Pressable
+                              onPress={(e) => { (e as any).stopPropagation?.(); setPickerFor(item); }}
+                              hitSlop={6}
+                              style={[styles.storeTag, group.store
+                                ? { borderColor: colors.borderStrong, backgroundColor: colors.bgMuted }
+                                : { borderColor: colors.line, borderStyle: 'dashed', backgroundColor: 'transparent' }]}
+                            >
+                              <Text style={[styles.storeTagTxt, { color: group.store ? colors.textSecondary : colors.textMuted }]}>
+                                {group.store ? `📍 ${group.store.toUpperCase()}` : '＋ STORE'}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                        <Text style={[styles.itemAmt, { color: item.checked ? colors.textMuted : colors.textSecondary }]}>
+                          {item.amount}{item.unit ? ` ${item.unit}` : ''}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 ))}
                 <DashRule color={colors.borderStrong} style={{ marginTop: spacing.md }} />
                 <Text style={[styles.receiptFooter, { color: colors.textMuted }]}>· THANK YOU · COME AGAIN ·</Text>
@@ -473,12 +613,22 @@ const styles = StyleSheet.create({
   recipeResultActionTxt: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1 },
   list: { paddingHorizontal: spacing.lg, flexShrink: 1 },
   empty: { textAlign: 'center', marginTop: 32, fontFamily: type.serifItalic, fontSize: font.sm, lineHeight: 22 },
+  filterBarWrap: { paddingLeft: spacing.lg, marginBottom: spacing.sm },
+  filterBar: { gap: 6, paddingRight: spacing.lg },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.sm, borderWidth: 1.5 },
+  filterChipTxt: { fontFamily: type.monoBold, fontSize: 9, letterSpacing: 1.5 },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.md, paddingBottom: 6 },
+  groupHeaderTxt: { fontFamily: type.monoBold, fontSize: 10, letterSpacing: 2.5 },
+  groupHeaderCount: { fontFamily: type.mono, fontSize: 10, letterSpacing: 1 },
   item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, gap: spacing.md },
   checkbox: { width: 20, height: 20, borderRadius: radius.sm, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   checkmark: { fontSize: 11, lineHeight: 14, fontFamily: type.monoBold },
   itemMain: { flex: 1 },
   itemName: { fontFamily: type.mono, fontSize: 13, lineHeight: 18 },
-  itemSources: { fontFamily: type.mono, fontSize: 8, letterSpacing: 1, marginTop: 3 },
+  itemMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  storeTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.sm, borderWidth: 1 },
+  storeTagTxt: { fontFamily: type.monoBold, fontSize: 8, letterSpacing: 1 },
+  itemSources: { fontFamily: type.mono, fontSize: 8, letterSpacing: 1 },
   itemAmt: { fontFamily: type.mono, fontSize: 12, textAlign: 'right', maxWidth: 110 },
   receiptFooter: { fontFamily: type.mono, fontSize: 9, letterSpacing: 2, textAlign: 'center', marginTop: spacing.sm, marginBottom: spacing.md },
 });

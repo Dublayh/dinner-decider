@@ -5,11 +5,31 @@ import type { Recipe } from '@/types';
 export interface GroceryItem {
   id: string;
   text: string;
-  amount?: string;
-  unit?: string;
+  amount?: string | null;
+  unit?: string | null;
   checked: boolean;
   source: string;
+  store?: string | null;
   created_at: string;
+}
+
+// Shared normaliser for grouping/combining items and keying the store memory.
+// Lowercases, collapses whitespace, and strips a trailing plural "s".
+export function normalizeIngredientName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/(?<=[a-z])s\b/, '');
+}
+
+// Look up the remembered store for a batch of item names (the auto-learn feature).
+// Returns a map of normalized name → store for names we've seen assigned before.
+async function resolveRememberedStores(names: string[]): Promise<Map<string, string>> {
+  const norms = [...new Set(names.map(normalizeIngredientName))].filter(Boolean);
+  if (norms.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from('ingredient_stores')
+    .select('normalized_name, store')
+    .in('normalized_name', norms);
+  if (error) throw error;
+  return new Map((data ?? []).map(r => [r.normalized_name, r.store]));
 }
 
 export async function getGroceryItems(): Promise<GroceryItem[]> {
@@ -28,9 +48,12 @@ export async function addGroceryItem(
   unit?: string,
   source = 'manual',
 ): Promise<GroceryItem> {
+  // Auto-assign the store this ingredient is usually bought at, if we've learned one.
+  const remembered = await resolveRememberedStores([text]);
+  const store = remembered.get(normalizeIngredientName(text)) ?? null;
   const { data, error } = await supabase
     .from('grocery_list')
-    .insert({ text, amount, unit, source, checked: false })
+    .insert({ text, amount, unit, source, store, checked: false })
     .select()
     .single();
   if (error) throw error;
@@ -40,15 +63,43 @@ export async function addGroceryItem(
 export async function addGroceryItems(
   items: { text: string; amount?: string; unit?: string; source?: string }[],
 ): Promise<void> {
+  const remembered = await resolveRememberedStores(items.map(i => i.text));
   const rows = items.map(i => ({
     text: i.text,
     amount: i.amount,
     unit: i.unit,
     source: i.source ?? 'manual',
+    store: remembered.get(normalizeIngredientName(i.text)) ?? null,
     checked: false,
   }));
   const { error } = await supabase.from('grocery_list').insert(rows);
   if (error) throw error;
+}
+
+// Assign (or clear) the store for one or more grocery rows, and teach the memory so
+// this ingredient auto-assigns next time. Passing store=null unassigns and forgets it.
+export async function setItemStore(
+  ids: string[],
+  text: string,
+  store: string | null,
+): Promise<void> {
+  const { error } = await supabase.from('grocery_list').update({ store }).in('id', ids);
+  if (error) throw error;
+
+  const normalized_name = normalizeIngredientName(text);
+  if (!normalized_name) return;
+  if (store) {
+    const { error: memErr } = await supabase
+      .from('ingredient_stores')
+      .upsert({ normalized_name, store, updated_at: new Date().toISOString() });
+    if (memErr) throw memErr;
+  } else {
+    const { error: memErr } = await supabase
+      .from('ingredient_stores')
+      .delete()
+      .eq('normalized_name', normalized_name);
+    if (memErr) throw memErr;
+  }
 }
 
 function scaleIngredientAmount(amount: string, scale: number): string {

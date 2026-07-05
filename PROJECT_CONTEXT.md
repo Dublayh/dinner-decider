@@ -79,7 +79,9 @@ All tables use `alter table ... enable row level security` + `create policy "all
 - `custom_recipes` — user-added recipes (schema supports both flat `ingredients`/`steps` arrays and `sections` for multi-part recipes like curry paste + curry)
 - `meal_plan` — one row per date, columns: `plan_date`, `type` (recipe/leftovers/eat_out/empty), `recipe_id`
 - `favorite_restaurants` — starred restaurants from search results
-- `grocery_list` — unified shopping list (all sources), columns: `id, text, amount, unit, checked, source ('manual' or recipe name), created_at`. Has real-time enabled: `alter publication supabase_realtime add table grocery_list;`
+- `grocery_list` — unified shopping list (all sources), columns: `id, text, amount, unit, checked, source ('manual' or recipe name), store (nullable — which store to buy it at), created_at`. Has real-time enabled: `alter publication supabase_realtime add table grocery_list;`
+- `stores` — the couple's list of shops (Costco, Kroger…), columns: `id, name, sort_order, created_at`. Real-time enabled so store-list edits sync between the two users.
+- `ingredient_stores` — auto-learn memory for the store feature: `normalized_name (pk) → store, updated_at`. Assigning an item to a store once teaches this map, so future items with the same normalized name (typed or from a recipe) auto-assign to that store.
 - `shopping_checks` — **DEPRECATED** — was old meal-plan-specific shopping check tracking, now unused since we unified into `grocery_list`
 
 **Storage**:
@@ -121,7 +123,8 @@ app/
 
 components/
 ├── AppDialog.tsx            # Shared: useAppAlert hook + AppToast + AppConfirmDialog components
-├── GroceryListModal.tsx     # Shared grocery list (used from home 🛒 + meal plan)
+├── GroceryListModal.tsx     # Shared grocery list (used from home 🛒 + meal plan) — store grouping/filter/tags
+├── StorePickerSheet.tsx     # Modal to assign an item to a store / create / delete stores
 ├── SpinWheel.tsx            # Skia wheel (native)
 ├── SpinWheelWeb.tsx         # Canvas2D wheel (web) — has DPR scaling for retina
 ├── SpinWheelUniversal.tsx   # Platform switch
@@ -135,7 +138,8 @@ lib/
 ├── customRestaurants.ts     # CRUD for custom_restaurants
 ├── favoriteRestaurants.ts   # CRUD for favorite_restaurants
 ├── mealPlan.ts              # CRUD for meal_plan (getShoppingChecks/saveShoppingChecks are legacy - unused)
-├── groceryList.ts           # CRUD for grocery_list (getGroceryItems, addGroceryItem, addGroceryItems, toggleGroceryItem, deleteCheckedItems, clearAllItems)
+├── groceryList.ts           # CRUD for grocery_list (getGroceryItems, addGroceryItem, addGroceryItems, toggleGroceryItem, deleteCheckedItems, clearAllItems, setItemStore, normalizeIngredientName). Adds auto-assign store on insert.
+├── stores.ts                # CRUD for stores (getStores, addStore, deleteStore — delete detaches items + forgets mappings)
 ├── places.ts                # fetchNearbyRestaurants + searchRestaurants + distanceBetween
 ├── amountUtils.ts           # parseAmount + formatAmount (fractions, mixed numbers, unicode ½ ⅓ ¼ etc.)
 ├── share.ts                 # shareContent — cross-platform share (Web Share API on web, native Share otherwise)
@@ -154,6 +158,7 @@ supabase/
 ├── schema.sql               # custom_restaurants, custom_recipes tables
 ├── schema-meal-plan.sql     # meal_plan + shopping_checks
 ├── schema-grocery.sql       # grocery_list table + realtime enable
+├── schema-stores.sql        # grocery_list.store column + stores + ingredient_stores tables (RUN THIS to enable store assignment)
 └── functions/
     ├── nearby-restaurants/index.ts
     ├── search-recipes/index.ts
@@ -279,7 +284,8 @@ The workflow is one of the more delicate parts of the project. Here's what it do
 - **"Already on list" dot** — Both 🛒 buttons show a small amber corner dot (`styles.listDot`) when that recipe's ingredients are currently on the list. Membership is checked by matching the grocery list's `source` values against the recipe name. Meal plan keeps a `listSources: Set<string>` refreshed on focus, after toggle/undo (optimistic), and when the grocery modal closes; recipe detail keeps a boolean `onList` set on load and after add/undo. Matching is by name, so renaming a recipe after adding can leave the dot stale until the list is re-synced.
 - **Two button behaviours (intentional):** The **meal-plan card 🛒 is a toggle** (`toggleEntryOnList`) — tap adds when off (dot lights + amber-tinted button), tap removes when on; each direction shows an Undo toast. The **recipe-detail 🛒 is add/re-sync** (not a toggle) because that screen has the 1x/2x/3x scale — re-tapping refreshes amounts at the current scale rather than removing. Undo there removes.
 - **Recipe search in the shopping list** — The `GroceryListModal` "Add an item..." field doubles as a recipe search: typing ≥2 chars matches recipe names (loads `getCustomRecipes()` once on open) and shows up to 5 results, each with its ingredient count (`recipeIngredientCount`). Tapping a result runs `addRecipeToGroceryList` (re-sync semantics) and silently refetches. Results already on the list show `✓ on list` instead of `+ N`. The `+` button / Enter still adds the typed text as a manual item, so the field serves both roles. The 🛒 in the meal-plan top bar now just opens the shopping list modal.
-- **Real-time grocery list**: Subscribes to `postgres_changes` on `grocery_list` when modal is open. INSERT/UPDATE/DELETE events update local state.
+- **Real-time grocery list**: Subscribes to `postgres_changes` on `grocery_list` when modal is open. INSERT/UPDATE/DELETE events update local state. Also subscribes to `stores` changes to keep both users' store lists in sync.
+- **Store assignment (shopping list)**: Each item can be tagged with a store. Tapping an item's store tag opens `StorePickerSheet` to pick/create/remove a store. Assigning teaches `ingredient_stores` (auto-learn), so re-adding that ingredient later auto-assigns it — including ingredients pulled from recipes (all inserts flow through `addGroceryItem`/`addGroceryItems`, which resolve the remembered store). The list groups under store sub-headers with a horizontal store filter bar (ALL / each store / UNASSIGNED). **Progressive disclosure**: the grouping headers + filter bar stay hidden until at least one store exists or an item has a store, so existing users see the old flat receipt until they opt in. Combining (name+unit) happens *within* each store group. Deleting a store detaches its items (sets `store=null`) and forgets its learned mappings.
 - **Dropdown menu positioning**: The ⋯ menu in recipe book uses `getBoundingClientRect()` on web / `measure()` on native to position the popup relative to the button's actual on-screen location.
 - **Modal z-index on web**: Some parts of React Native Web don't create proper stacking contexts. Solved by rendering the dropdown menu inside its own `<Modal>` (not just an absolutely-positioned View).
 
